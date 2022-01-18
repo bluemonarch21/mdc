@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "strict": true,
+
+    "baseUrl": ".",
+    "module": "es2020",
+    "moduleResolution": "node",
+    "paths": {
+      "*": [
+        "node_modules/*"
+      ],
+    },
+    "resolveJsonModule": true,
+
+    "outDir": "dist",
+    "sourceMap": true,
+
+    "allowJs": true,
+
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+
+    "jsx": "react-jsx",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "target": "es2020",
+
+    "composite": true,
+  },
+  "include": [
+    "src/**/*"
+  ]
+}

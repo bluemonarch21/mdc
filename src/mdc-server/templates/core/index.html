@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  {% for i in css %}
+    <link rel="stylesheet" href="static{{ i }}" />
+  {% endfor %}
+  <title>MDC</title>
+</head>
+<body>
+  <div id="root"></div>
+  {% for j in js %}
+    <script src="static{{ j }}"></script>
+  {% endfor %}
+</body>
+</html>
