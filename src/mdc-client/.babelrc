@@ -1,38 +1,44 @@
 {
-    "presets": [
-      [
-        "@babel/preset-react",
-        {
-          "runtime": "automatic"
-        }
-      ],
-      "@babel/env",
-      "@babel/typescript"
+  "presets": [
+    [
+      "@babel/preset-react",
+      {
+        "runtime": "automatic"
+      }
     ],
-    "plugins": [
-      [
-        "module-resolver",
-        {
-          "root": ["./src"],
-          "alias": {},
-          "extensions": [".js", ".jsx", ".ts", ".tsx"]
-        }
-      ],
-      "@babel/proposal-class-properties",
-      "@babel/proposal-object-rest-spread",
-      [
-        "babel-plugin-styled-components",
-        {
-          "pure": true
-        }
-      ],
-      "@babel/plugin-syntax-dynamic-import",
-      [
-        "@babel/plugin-transform-runtime",
-        {
-          "regenerator": true
-        }
-      ]
+    "@babel/env",
+    "@babel/typescript"
+  ],
+  "plugins": [
+    [
+      "module-resolver",
+      {
+        "root": [
+          "./src"
+        ],
+        "alias": {},
+        "extensions": [
+          ".js",
+          ".jsx",
+          ".ts",
+          ".tsx"
+        ]
+      }
+    ],
+    "@babel/proposal-class-properties",
+    "@babel/proposal-object-rest-spread",
+    [
+      "babel-plugin-styled-components",
+      {
+        "pure": true
+      }
+    ],
+    "@babel/plugin-syntax-dynamic-import",
+    [
+      "@babel/plugin-transform-runtime",
+      {
+        "regenerator": true
+      }
     ]
-  }
-  
+  ]
+}

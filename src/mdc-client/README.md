@@ -1,4 +1,4 @@
-# mdc-clit
+# mdc-client
 
 Client-side code for the MDC application, written in TypeScript with React.
 
