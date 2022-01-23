@@ -55,7 +55,7 @@ def main(
                 continue
             # Read ZipFile to check contents
             zf = ZipFile(io.BytesIO(res.content))
-            if not filter(lambda n: n.endswith(".mscx"), zf.namelist()):
+            if not list(filter(lambda n: n.endswith(".mscx"), zf.namelist())):
                 logger.log(f"{id} skipped {res.status_code} {zf.namelist()}\n")
                 continue
             # Save whole ZipFile
