@@ -62,6 +62,7 @@ def main(
             with open(download_folder / f"{id}.zip", "wb") as outfile:
                 outfile.write(res.content)
                 logger.start = True
+                logger.log(f"{id} updated {res.status_code} {zf.namelist()}\n")
                 i += 1
             if i == n:
                 break
