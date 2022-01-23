@@ -1,4 +1,4 @@
-# mdc-client
+# mdc-ui
 
 Client-side code for the MDC application, written in TypeScript with React.
 
@@ -6,7 +6,7 @@ Client-side code for the MDC application, written in TypeScript with React.
 
 0. Ensure you're at the right place.
 ```shell
-cd src/mdc-client
+cd src/mdc-ui
 ```
 
 1. Ensure dependencies are installed.
@@ -19,7 +19,7 @@ yarn install
 yarn start
 ```
 
-3. Run the server to access the website in your browser (see [`mdc-server`](../mdc-server)).
+3. Run the server to access the website in your browser.
 
 ### Testing
 

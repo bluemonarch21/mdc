@@ -1,4 +1,4 @@
-# mdc-server
+# mdc-django
 
 Server for the MDC application, written in Python with Django.
 
@@ -6,7 +6,7 @@ Server for the MDC application, written in Python with Django.
 
 0. Make sure you're at the right place.
 ```shell
-cd src/mdc-server
+cd src/mdc-django
 ```
 1. Ensure dependencies are installed (preferably in a virtual environment).
 ```shell
@@ -17,7 +17,7 @@ pip install -r requirements.txt
 python manage.py runserver
 ```
 
-3. Ensure client JS bundle is compiled in `core/static/js/assets` (see [`mdc-client`](../mdc-client)).
+3. Ensure client JS bundle is compiled in `mdc-ui` (see [`mdc-ui`](../mdc-ui)).
 
 ### Testing
 

@@ -3,7 +3,7 @@ const common = require('./webpack.config');
 const path = require('path');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
-const outputPath = path.resolve(__dirname, '../mdc-server/core/static/js/assets');
+const outputPath = path.resolve(__dirname, '../mdc-django/core/static/js/assets');
 const devConfig = {
   output: {
     path: outputPath,

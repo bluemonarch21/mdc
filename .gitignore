@@ -262,4 +262,4 @@ dist
 
 ### PROJECT ###
 
-src/mdc-server/core/static/js/assets
+src/mdc-django/core/static/js/assets
