@@ -1,0 +1,95 @@
+#!/usr/bin/python3
+import argparse
+import datetime
+import io
+from itertools import islice
+from pathlib import Path
+from zipfile import ZipFile
+
+import requests
+
+now = datetime.datetime.now()
+
+
+def main(mscz_files_csv: Path, download_folder: Path, overwrite: bool, ids: list[str] = None, n: int = None):
+    i = 0
+    log_filename = (
+        download_folder
+        / f"log~{now.year}-{now.month}-{now.day}T{now.hour}-{now.minute}-{now.second}.txt"
+    )
+    with open(mscz_files_csv, "r") as mscz_file:
+        for line in islice(mscz_file, 1, None):
+            id, ref, path = line.split(",")
+            if (download_folder / f"{id}.zip").exists():
+                if not overwrite:
+                    with open(log_filename, "a") as logfile:
+                        logfile.write(f"{id} skipped (not overwrite)\n")
+                    continue
+                if ids and id not in ids:
+                    with open(log_filename, "a") as logfile:
+                        logfile.write(f"{id} skipped (not specified)\n")
+                    continue
+            ipns = ref[6:]
+            url = f"https://ipfs.infura.io/ipfs/{ipns}/"
+            res = requests.get(url)
+            if res.status_code != 200:
+                # log failed requests
+                with open(log_filename, "a", encoding="utf-8") as logfile:
+                    logfile.write(f"{id} {res.status_code}\n")
+                continue
+            # Read ZipFile to check contents
+            zf = ZipFile(io.BytesIO(res.content))
+            if not filter(lambda n: n.endswith(".mscx"), zf.namelist()):
+                with open(log_filename, "a", encoding="utf-8") as logfile:
+                    logfile.write(f"{id} {res.status_code} {zf.namelist()}\n")
+                continue
+            # Save whole ZipFile
+            with open(download_folder / f"{id}.zip", "wb") as outfile:
+                outfile.write(res.content)
+                i += 1
+            if i == n:
+                break
+
+
+REPO = Path(__file__).resolve().parent.parent.parent
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Download musescore files from IPFS links."
+    )
+    parser.add_argument(
+        "--links",
+        nargs=1,
+        type=str,
+        default=(REPO / "assets/mscz-files.csv").__str__(),
+        help="path to mscz-files.csv (default: ~/assets/mscz-files.csv)",
+    )
+    parser.add_argument(
+        "--folder",
+        nargs="?",
+        type=str,
+        default=(REPO / "assets/musescore").__str__(),
+        help="folder to place downloaded musescore files (default: ~/assets/musescore)",
+    )
+    parser.add_argument(
+        "--overwrite",
+        nargs="?",
+        type=bool,
+        const=True,
+        default=False,
+        help="overwrite specified ids (default: skip)",
+    )
+    parser.add_argument("ids", nargs="*", type=str, help="specific ids to overwrite")
+    parser.add_argument(
+        "-n", nargs="?", type=int, default=10, help="number of files to download or overwrite (default: 10)"
+    )
+
+    args = parser.parse_args()
+    print(args, "time=", now.isoformat())
+    main(
+        mscz_files_csv=Path(args.links),
+        download_folder=Path(args.folder),
+        overwrite=args.overwrite,
+        ids=args.ids,
+        n=max(args.n, len(args.ids)),
+    )
+    print('done!')
