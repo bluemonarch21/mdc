@@ -99,6 +99,7 @@ if __name__ == "__main__":
                 instrumentId_list.append(instrumentId.text)
                 # print(instrumentId.text)
 
+        # TODO: Check for correct list (Piano, Grand Piano, keyboard.piano.[]
         piano = "Piano"
         hasPiano = False
         if piano in instrument_list:
