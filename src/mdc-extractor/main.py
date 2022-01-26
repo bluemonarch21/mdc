@@ -1,9 +1,16 @@
-import dataclasses
 import csv
+import dataclasses
+import math
 from zipfile import ZipFile
+
 from bs4 import BeautifulSoup
 
 from constants import REPO
+
+
+def get_entropy(dct: dict[any, int]) -> float:
+    total = sum(dct.values())
+    return -sum(v / total * math.log(v / total, 2) for v in dct.values())
 
 
 @dataclasses.dataclass
@@ -19,7 +26,9 @@ def extract_feature(filename: str) -> Feature:
 
 if __name__ == "__main__":
     rows = []
-    zip_filepaths = list(sorted((REPO / "assets/musescore").glob("*.zip"), key=lambda a: int(a.stem)))
+    zip_filepaths = list(
+        sorted((REPO / "assets/musescore").glob("*.zip"), key=lambda a: int(a.stem))
+    )
     for zfp in zip_filepaths:
         zfile = ZipFile(zfp)
         mscx_files = list(filter(lambda n: n.endswith(".mscx"), zfile.namelist()))
@@ -32,9 +41,9 @@ if __name__ == "__main__":
 
         soup = BeautifulSoup(openfile, "xml")
 
-        version = soup.find('museScore').get('version')
+        version = soup.find("museScore").get("version")
 
-        b_version = soup.find_all('programVersion')
+        b_version = soup.find_all("programVersion")
         version_list = []
         for programVersion in b_version:
             if programVersion not in version_list:
@@ -49,7 +58,17 @@ if __name__ == "__main__":
         #         'composer': 'metaTag:name=composer'
         #     }        #     data[dct[name]] = text
 
-        b_trackName = soup.find_all('trackName')
+        midi_num_occurrence = {}
+        notes = soup.find_all("Note")
+        for note in notes:
+            midi_num = note.find("pitch").text
+            if midi_num in midi_num_occurrence:
+                midi_num_occurrence[midi_num] += 1
+            else:
+                midi_num_occurrence[midi_num] = 1
+        PE = get_entropy(midi_num_occurrence)
+
+        b_trackName = soup.find_all("trackName")
         instrument_list = []
         for instrument in b_trackName:
             if instrument not in instrument_list:
@@ -58,7 +77,7 @@ if __name__ == "__main__":
 
         # print("--------------")
 
-        b_tempo = soup.find_all('tempo')
+        b_tempo = soup.find_all("tempo")
         tempo_list = []
         for tempo in b_tempo:
             if tempo not in tempo_list:
@@ -67,19 +86,19 @@ if __name__ == "__main__":
 
         # print("--------------")
 
-        b_instrumentId = soup.find_all('instrumentId')
+        b_instrumentId = soup.find_all("instrumentId")
         instrumentId_list = []
         for instrumentId in b_instrumentId:
             if instrumentId not in instrumentId_list:
                 instrumentId_list.append(instrumentId.text)
                 # print(instrumentId.text)
 
-        piano = 'Piano'
+        piano = "Piano"
         hasPiano = False
         if piano in instrument_list:
             hasPiano = True
-        else: hasPiano = False
-
+        else:
+            hasPiano = False
 
         data = []
         data.append(zfp.stem)
@@ -90,14 +109,25 @@ if __name__ == "__main__":
         data.append(tempo_list)
         data.append(instrumentId_list)
         data.append(hasPiano)
+        data.append(PE)
         # print('data', data)
         rows.append(data)
 
     # print('done!')
     # print('rows', rows)
 
-    Details = ['id', 'filename', 'version', 'programVersion', 'trackName', 'Tempo', 'IntrumentId', 'hasPiano?']
-    with open('mdc.csv', 'w', encoding='utf-8', newline='') as f:
-        write = csv.writer(f) 
-        write.writerow(Details) 
+    Details = [
+        "id",
+        "filename",
+        "version",
+        "programVersion",
+        "trackName",
+        "Tempo",
+        "IntrumentId",
+        "hasPiano?",
+        "PE",
+    ]
+    with open("mdc.csv", "w", encoding="utf-8", newline="") as f:
+        write = csv.writer(f)
+        write.writerow(Details)
         write.writerows(rows)
