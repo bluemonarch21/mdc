@@ -58,15 +58,21 @@ if __name__ == "__main__":
         #         'composer': 'metaTag:name=composer'
         #     }        #     data[dct[name]] = text
 
+        num_accidental_notes = 0
         midi_num_occurrence = {}
         notes = soup.find_all("Note")
         for note in notes:
+            # count midi numbers
             midi_num = note.find("pitch").text
             if midi_num in midi_num_occurrence:
                 midi_num_occurrence[midi_num] += 1
             else:
                 midi_num_occurrence[midi_num] = 1
+            # count altered notes
+            if note.find("Accidental") is not None:
+                num_accidental_notes += 1
         PE = get_entropy(midi_num_occurrence)
+        ANR = num_accidental_notes / len(notes)
 
         b_trackName = soup.find_all("trackName")
         instrument_list = []
@@ -110,6 +116,7 @@ if __name__ == "__main__":
         data.append(instrumentId_list)
         data.append(hasPiano)
         data.append(PE)
+        data.append(ANR)
         # print('data', data)
         rows.append(data)
 
@@ -126,6 +133,7 @@ if __name__ == "__main__":
         "IntrumentId",
         "hasPiano?",
         "PE",
+        "ANR",
     ]
     with open("mdc.csv", "w", encoding="utf-8", newline="") as f:
         write = csv.writer(f)
