@@ -1,8 +1,8 @@
 import csv
-import dataclasses
 import math
 from zipfile import ZipFile
 
+from attrs import define
 from bs4 import BeautifulSoup
 
 from constants import REPO
@@ -13,7 +13,7 @@ def get_entropy(dct: dict[any, int]) -> float:
     return -sum(v / total * math.log(v / total, 2) for v in dct.values())
 
 
-@dataclasses.dataclass
+@define
 class Feature:
     PS: float  # playing speed
     PE: float  # pitch entropy
