@@ -1,7 +1,9 @@
-from typing import Optional, ClassVar, Union
+from typing import ClassVar, Optional, Union
 
 import bs4.element
 from attr import define
+
+from features import Features, get_entropy
 
 
 @define
@@ -31,8 +33,20 @@ class MuseScore:
         programVersion = tag.find("programVersion", recursive=False).text
         programRevision = tag.find("programRevision", recursive=False).text
 
-        siglist = list(map(sig.from_tag, tag.find("siglist", recursive=False).find_all("sig", recursive=False)))
-        tempolist = list(map(tempo.from_tag, tag.find("tempolist", recursive=False).find_all("tempo", recursive=False)))
+        siglist = list(
+            map(
+                sig.from_tag,
+                tag.find("siglist", recursive=False).find_all("sig", recursive=False),
+            )
+        )
+        tempolist = list(
+            map(
+                tempo.from_tag,
+                tag.find("tempolist", recursive=False).find_all(
+                    "tempo", recursive=False
+                ),
+            )
+        )
         parts = list(map(Part.from_tag, tag.find_all("Part", recursive=False)))
         staffs = list(map(Staff.from_tag, tag.find_all("Staff", recursive=False)))
 
@@ -45,6 +59,29 @@ class MuseScore:
             parts=parts,
             staffs=staffs,
         )
+
+    def get_features(self) -> "Features":
+        num_accidental_notes = 0
+        midi_num_occurrence = {}
+        notes = []
+        # TODO: only include 2 staff, that is for the Piano part
+        for staff in self.staffs:
+            for measure in staff.measures:
+                for child in measure.children:
+                    if isinstance(child, Note):
+                        notes.append(child)
+        for note in notes:
+            # count midi numbers
+            if note.pitch in midi_num_occurrence:
+                midi_num_occurrence[note.pitch] += 1
+            else:
+                midi_num_occurrence[note.pitch] = 1
+            # count altered notes
+            if note.accidental is not None:
+                num_accidental_notes += 1
+        PE = get_entropy(midi_num_occurrence)
+        ANR = num_accidental_notes / len(notes)
+        return Features(PE=PE, ANR=ANR)
 
 
 @define
@@ -89,7 +126,7 @@ class tempo:
 class Part:
     # child elements
     staffs: list["Part.Staff"]
-    name: Optional[str]
+    name: Optional[str]  # known values: "Piano"
     instrument: "Instrument"
 
     @classmethod
@@ -97,7 +134,11 @@ class Part:
         assert tag.name == "Part"
         staffs = list(map(Part.Staff.from_tag, tag.find_all("Staff", recursive=False)))
         name_tag = tag.find("name", recursive=False)
-        name = None if name_tag is None else name_tag.find("html-data", recursive=False).text
+        name = (
+            None
+            if name_tag is None
+            else name_tag.find("html-data", recursive=False).text
+        )
         instrument = Instrument.from_tag(tag.find("Instrument", recursive=False))
         return cls(staffs=staffs, name=name, instrument=instrument)
 
@@ -109,8 +150,22 @@ class Part:
         @classmethod
         def from_tag(cls, tag: bs4.element.Tag) -> "Staff":
             assert tag.name == "Staff"
-            cleflist = list(map(clef.from_tag, tag.find("cleflist", recursive=False).find_all("clef", recursive=False)))
-            keylist = list(map(key.from_tag, tag.find("keylist", recursive=False).find_all("key", recursive=False)))
+            cleflist = list(
+                map(
+                    clef.from_tag,
+                    tag.find("cleflist", recursive=False).find_all(
+                        "clef", recursive=False
+                    ),
+                )
+            )
+            keylist = list(
+                map(
+                    key.from_tag,
+                    tag.find("keylist", recursive=False).find_all(
+                        "key", recursive=False
+                    ),
+                )
+            )
             return cls(cleflist=cleflist, keylist=keylist)
 
 
@@ -294,9 +349,13 @@ class KeySig:
         subtype = None if subtype_tag is None else int(subtype_tag.text)
         keySyms = list(map(KeySym.from_tag, tag.find_all("KeySym", recursive=False)))
         showCourtesySig_tag = tag.find("showCourtesySig", recursive=False)
-        showCourtesySig = None if showCourtesySig_tag is None else bool(int(showCourtesySig_tag.text))
+        showCourtesySig = (
+            None if showCourtesySig_tag is None else bool(int(showCourtesySig_tag.text))
+        )
         showNaturals_tag = tag.find("showNaturals", recursive=False)
-        showNaturals = None if showNaturals_tag is None else bool(int(showNaturals_tag.text))
+        showNaturals = (
+            None if showNaturals_tag is None else bool(int(showNaturals_tag.text))
+        )
         return cls(
             subtype=subtype,
             keySyms=keySyms,

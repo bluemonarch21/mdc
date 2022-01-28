@@ -1,28 +1,10 @@
 import csv
-import math
 from zipfile import ZipFile
 
-from attrs import define
 from bs4 import BeautifulSoup
 
 from constants import REPO
-
-
-def get_entropy(dct: dict[any, int]) -> float:
-    total = sum(dct.values())
-    return -sum(v / total * math.log(v / total, 2) for v in dct.values())
-
-
-@define
-class Feature:
-    PS: float  # playing speed
-    PE: float  # pitch entropy
-    DSR: float  # distinct stroke rate
-
-
-def extract_feature(filename: str) -> Feature:
-    pass
-
+from musescore.next import newMuseScore
 
 if __name__ == "__main__":
     rows = []
@@ -40,6 +22,10 @@ if __name__ == "__main__":
         # print(zfp)
 
         soup = BeautifulSoup(openfile, "xml")
+        musescore = newMuseScore(soup)
+        if musescore is not None:
+            print(zfp.stem, filename, "parsed")
+        continue
 
         version = soup.find("museScore").get("version")
 
