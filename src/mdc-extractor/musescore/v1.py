@@ -28,13 +28,13 @@ class MuseScore:
         version = tag.get("version")
         if version not in cls.known_versions:
             raise ValueError(f"found unknown version: {version}")
-        programVersion = tag.find("programVersion").text
-        programRevision = tag.find("programRevision").text
+        programVersion = tag.find("programVersion", recursive=False).text
+        programRevision = tag.find("programRevision", recursive=False).text
 
-        siglist = list(map(sig.from_tag, tag.find("siglist").find_all("sig")))
-        tempolist = list(map(tempo.from_tag, tag.find("tempolist").find_all("tempo")))
-        parts = list(map(Part.from_tag, tag.find_all("Part")))
-        staffs = list(map(Staff.from_tag, tag.find_all("Staff")))
+        siglist = list(map(sig.from_tag, tag.find("siglist", recursive=False).find_all("sig", recursive=False)))
+        tempolist = list(map(tempo.from_tag, tag.find("tempolist", recursive=False).find_all("tempo", recursive=False)))
+        parts = list(map(Part.from_tag, tag.find_all("Part", recursive=False)))
+        staffs = list(map(Staff.from_tag, tag.find_all("Staff", recursive=False)))
 
         return cls(
             version=version,
@@ -62,10 +62,12 @@ class sig:
     def from_tag(cls, tag: bs4.element.Tag) -> "sig":
         assert tag.name == "sig"
         tick = int(tag.get("tick"))
-        nom = int(tag.find("nom").text)
-        denom = int(tag.find("denom").text)
-        nom2 = None if tag.find("nom2") is None else int(tag.find("nom2").text)
-        denom2 = None if tag.find("denom2") is None else int(tag.find("denom2").text)
+        nom = int(tag.find("nom", recursive=False).text)
+        denom = int(tag.find("denom", recursive=False).text)
+        nom2_tag = tag.find("nom2", recursive=False)
+        nom2 = None if nom2_tag is None else int(nom2_tag.text)
+        denom2_tag = tag.find("denom2", recursive=False)
+        denom2 = None if denom2_tag is None else int(denom2_tag.text)
         return cls(tick=tick, nom=nom, nom2=nom2, denom=denom, denom2=denom2)
 
 
@@ -87,17 +89,16 @@ class tempo:
 class Part:
     # child elements
     staffs: list["Part.Staff"]
-    name: str
+    name: Optional[str]
     instrument: "Instrument"
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Part":
         assert tag.name == "Part"
-        staffs = list(map(cls.Staff.from_tag, tag.find_all("Staff")))
-        name_tag = tag.find("name")
-        assert name_tag is not None
-        name = name_tag.find("html-data").text
-        instrument = Instrument.from_tag(tag.find("Instrument"))
+        staffs = list(map(Part.Staff.from_tag, tag.find_all("Staff", recursive=False)))
+        name_tag = tag.find("name", recursive=False)
+        name = None if name_tag is None else name_tag.find("html-data", recursive=False).text
+        instrument = Instrument.from_tag(tag.find("Instrument", recursive=False))
         return cls(staffs=staffs, name=name, instrument=instrument)
 
     @define
@@ -108,8 +109,8 @@ class Part:
         @classmethod
         def from_tag(cls, tag: bs4.element.Tag) -> "Staff":
             assert tag.name == "Staff"
-            cleflist = list(map(clef.from_tag, tag.find("cleflist").find_all("clef")))
-            keylist = list(map(key.from_tag, tag.find("keylist").find_all("key")))
+            cleflist = list(map(clef.from_tag, tag.find("cleflist", recursive=False).find_all("clef", recursive=False)))
+            keylist = list(map(key.from_tag, tag.find("keylist", recursive=False).find_all("key", recursive=False)))
             return cls(cleflist=cleflist, keylist=keylist)
 
 
@@ -141,12 +142,13 @@ class key:
 
 @define
 class Instrument:
-    trackName: str
+    trackName: Optional[str]
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Instrument":
         assert tag.name == "Instrument"
-        trackName = tag.find("trackName").text
+        trackName_tag = tag.find("trackName", recursive=False)
+        trackName = None if trackName_tag is None else trackName_tag.text
         return cls(trackName=trackName)
 
 
@@ -162,7 +164,7 @@ class Staff:
     def from_tag(cls, tag: bs4.element.Tag) -> "Staff":
         assert tag.name == "Staff"
         id_ = int(tag.get("id"))
-        measures = list(map(Measure.from_tag, tag.find_all("Measure")))
+        measures = list(map(Measure.from_tag, tag.find_all("Measure", recursive=False)))
         return cls(id=id_, measures=measures)
 
 
@@ -185,9 +187,9 @@ class Measure:
         number = tag.get("number")
         len_ = tag.get("len")
 
-        KeySig_tag = tag.find("KeySig")
+        KeySig_tag = tag.find("KeySig", recursive=False)
         keySig = None if KeySig_tag is None else KeySig.from_tag(KeySig_tag)
-        TimeSig_tag = tag.find("TimeSig")
+        TimeSig_tag = tag.find("TimeSig", recursive=False)
         timeSig = None if TimeSig_tag is None else TimeSig.from_tag(TimeSig_tag)
 
         children = []
@@ -221,22 +223,18 @@ class Tempo:
     tempo: float
     style: int
     subtype: str  # known values: "Tempo"
-    html_data: bs4.element.Tag  # important! text is here  e.g. "Larghetto"
-
-    @property
-    def text(self) -> str:
-        # TODO: parse into tempo name + BPM
-        return self.html_data.text
+    text: str  # important! text is here  e.g. "Larghetto"
+    # TODO: parse into tempo name + BPM
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Tempo":
         assert tag.name == "Tempo"
-        tempo = float(tag.find("tempo").text)
-        style = int(tag.find("style").text)
-        subtype = tag.find("subtype").text
+        tempo = float(tag.find("tempo", recursive=False).text)
+        style = int(tag.find("style", recursive=False).text)
+        subtype = tag.find("subtype", recursive=False).text
         assert subtype == "Tempo"
-        html_data = tag.find("html-data")
-        return cls(tempo=tempo, style=style, subtype=subtype, html_data=html_data)
+        text = tag.find("html-data", recursive=False).text
+        return cls(tempo=tempo, style=style, subtype=subtype, text=text)
 
 
 @define
@@ -244,17 +242,21 @@ class Dynamic:
     # apply to the next Chord, unless tick is specified (compare ticks to see which is applied?)
 
     style: int  # known values: 12  # font size?
-    subtype: str  # known values: "pp", "p", "sf"
+    subtype: Optional[str]  # known values: "pp", "p", "sf"
     tick: Optional[int]
+    text: Optional[str]  # e.g. "cresc."
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Dynamic":
         assert tag.name == "Dynamic"
-        style = int(tag.find("style").text)
-        subtype = tag.find("subtype").text
-        tick_tag = tag.find("tick")
+        style = int(tag.find("style", recursive=False).text)
+        subtype_tag = tag.find("subtype", recursive=False)
+        subtype = None if subtype_tag is None else subtype_tag.text
+        tick_tag = tag.find("tick", recursive=False)
         tick = None if tick_tag is None else int(tick_tag.text)
-        return cls(style=style, subtype=subtype, tick=tick)
+        html_data_tag = tag.find("html-data", recursive=False)
+        text = None if html_data_tag is None else html_data_tag.text
+        return cls(style=style, subtype=subtype, tick=tick, text=text)
 
 
 @define
@@ -268,30 +270,33 @@ class TimeSig:
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "TimeSig":
         assert tag.name == "TimeSig"
-        subtype = int(tag.find("subtype").text)
-        tick_tag = tag.find("tick")
+        subtype = int(tag.find("subtype", recursive=False).text)
+        tick_tag = tag.find("tick", recursive=False)
         tick = None if tick_tag is None else int(tick_tag.text)
-        den = int(tag.find("den").text)
-        nom1 = int(tag.find("nom1").text)
-        nom2_tag = tag.find("nom2")
+        den = int(tag.find("den", recursive=False).text)
+        nom1 = int(tag.find("nom1", recursive=False).text)
+        nom2_tag = tag.find("nom2", recursive=False)
         nom2 = None if nom2_tag is None else int(nom2_tag.text)
         return cls(subtype=subtype, tick=tick, den=den, nom1=nom1, nom2=nom2)
 
 
 @define
 class KeySig:
-    subtype: int  # known values: 4, 75, 180
+    subtype: Optional[int]  # known values: 4, 75, 180
     keySyms: "KeySym"
-    showCourtesySig: bool  # known values: 1
-    showNaturals: bool  # known values: 1
+    showCourtesySig: Optional[bool]  # known values: 1
+    showNaturals: Optional[bool]  # known values: 1
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "KeySig":
         assert tag.name == "KeySig"
-        subtype = int(tag.find("subtype").text)
-        keySyms = list(map(KeySym.from_tag, tag.find_all("KeySym")))
-        showCourtesySig = bool(int(tag.find("showCourtesySig").text))
-        showNaturals = bool(int(tag.find("showCourtesySig").text))
+        subtype_tag = tag.find("subtype", recursive=False)
+        subtype = None if subtype_tag is None else int(subtype_tag.text)
+        keySyms = list(map(KeySym.from_tag, tag.find_all("KeySym", recursive=False)))
+        showCourtesySig_tag = tag.find("showCourtesySig", recursive=False)
+        showCourtesySig = None if showCourtesySig_tag is None else bool(int(showCourtesySig_tag.text))
+        showNaturals_tag = tag.find("showNaturals", recursive=False)
+        showNaturals = None if showNaturals_tag is None else bool(int(showNaturals_tag.text))
         return cls(
             subtype=subtype,
             keySyms=keySyms,
@@ -323,7 +328,7 @@ class Clef:
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Clef":
         assert tag.name == "Clef"
-        subtype_tag = tag.find("subtype")
+        subtype_tag = tag.find("subtype", recursive=False)
         subtype = None if subtype_tag is None else subtype_tag.text
         return cls(subtype=subtype)
 
@@ -357,16 +362,16 @@ class Tuplet:
     def from_tag(cls, tag: bs4.element.Tag) -> "Tuplet":
         assert tag.name == "Tuplet"
         id_ = int(tag.get("id"))
-        track_tag = tag.find("track")
+        track_tag = tag.find("track", recursive=False)
         track = None if track_tag is None else int(track_tag.text)
-        tick_tag = tag.find("tick")
+        tick_tag = tag.find("tick", recursive=False)
         tick = None if tick_tag is None else int(tick_tag.text)
-        numberType = int(tag.find("numberType").text)
-        bracketType = int(tag.find("bracketType").text)
-        normalNotes = int(tag.find("normalNotes").text)
-        actualNotes = int(tag.find("actualNotes").text)
-        baseNote = tag.find("baseNote").text
-        Number_tag = tag.find("Number")
+        numberType = int(tag.find("numberType", recursive=False).text)
+        bracketType = int(tag.find("bracketType", recursive=False).text)
+        normalNotes = int(tag.find("normalNotes", recursive=False).text)
+        actualNotes = int(tag.find("actualNotes", recursive=False).text)
+        baseNote = tag.find("baseNote", recursive=False).text
+        Number_tag = tag.find("Number", recursive=False)
         number = None if Number_tag is None else Number.from_tag(Number_tag)
 
         return cls(
@@ -386,20 +391,16 @@ class Tuplet:
 class Number:
     style: int  # known values: 21
     subtype: str  # known values: "Tuplet"
-    html_data: bs4.element.Tag
-
-    @property
-    def text(self) -> str:
-        return self.html_data.text
+    text: str
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Number":
         assert tag.name == "Number"
-        style = int(tag.find("style").text)
-        subtype = tag.find("subtype").text
+        style = int(tag.find("style", recursive=False).text)
+        subtype = tag.find("subtype", recursive=False).text
         assert subtype == "Tuplet"
-        html_data = tag.find("html-data")
-        return cls(style=style, subtype=subtype, html_data=html_data)
+        text = tag.find("html-data", recursive=False).text
+        return cls(style=style, subtype=subtype, text=text)
 
 
 @define
@@ -422,13 +423,13 @@ class Rest:
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Rest":
         assert tag.name == "Rest"
-        visible_tag = tag.find("visible")
+        visible_tag = tag.find("visible", recursive=False)
         visible = None if visible_tag is None else bool(int(visible_tag.text))
-        tick_tag = tag.find("tick")
+        tick_tag = tag.find("tick", recursive=False)
         tick = None if tick_tag is None else int(tick_tag.text)
-        dots_tag = tag.find("dots")
+        dots_tag = tag.find("dots", recursive=False)
         dots = None if dots_tag is None else int(dots_tag.text)
-        durationType = tag.find("durationType").text
+        durationType = tag.find("durationType", recursive=False).text
         return cls(visible=visible, tick=tick, durationType=durationType, dots=dots)
 
 
@@ -450,29 +451,29 @@ class Chord:  # TODO
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Chord":
         assert tag.name == "Chord"
-        track_tag = tag.find("track")
+        track_tag = tag.find("track", recursive=False)
         track = None if track_tag is None else int(track_tag.text)
-        tick_tag = tag.find("tick")
+        tick_tag = tag.find("tick", recursive=False)
         tick = None if tick_tag is None else int(tick_tag.text)
-        Tuplet_tag = tag.find("Tuplet")
+        Tuplet_tag = tag.find("Tuplet", recursive=False)
         tuplet_id = None if Tuplet_tag is None else int(Tuplet_tag.text)
-        dots_tag = tag.find("dots")
+        dots_tag = tag.find("dots", recursive=False)
         dots = None if dots_tag is None else int(dots_tag.text)
-        durationType = tag.find("durationType").text
+        durationType = tag.find("durationType", recursive=False).text
 
-        Slur_tag = tag.find("Slur")
+        Slur_tag = tag.find("Slur", recursive=False)
         slur = None if Slur_tag is None else Slur.from_tag(Slur_tag)
-        appoggiatura = tag.find("appoggiatura") is not None
+        appoggiatura = tag.find("appoggiatura", recursive=False) is not None
 
-        notes = list(map(Note.from_tag, tag.find_all("Note")))
+        notes = list(map(Note.from_tag, tag.find_all("Note", recursive=False)))
 
-        Articulation_tag = tag.find("Articulation")
+        Articulation_tag = tag.find("Articulation", recursive=False)
         articulation = (
             None
             if Articulation_tag is None
             else Articulation.from_tag(Articulation_tag)
         )
-        Arpeggio_tag = tag.find("Arpeggio")
+        Arpeggio_tag = tag.find("Arpeggio", recursive=False)
         arpeggio = None if Arpeggio_tag is None else Arpeggio.from_tag(Arpeggio_tag)
 
         return cls(
@@ -491,14 +492,15 @@ class Chord:  # TODO
 
 @define
 class Articulation:
-    subtype: str  # known values: "staccato", "sforzato"
+    subtype: Optional[str]  # known values: "staccato", "sforzato"
     track: Optional[int]
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Articulation":
         assert tag.name == "Articulation"
-        subtype = tag.find("subtype").text
-        track_tag = tag.find("track")
+        subtype_tag = tag.find("subtype", recursive=False)
+        subtype = None if subtype_tag is None else subtype_tag.text
+        track_tag = tag.find("track", recursive=False)
         track = None if track_tag is None else int(track_tag.text)
         return cls(subtype=subtype, track=track)
 
@@ -512,9 +514,9 @@ class Arpeggio:
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Arpeggio":
         assert tag.name == "Arpeggio"
-        track_tag = tag.find("track")
+        track_tag = tag.find("track", recursive=False)
         track = None if track_tag is None else int(track_tag.text)
-        userLen1_tag = tag.find("userLen1")
+        userLen1_tag = tag.find("userLen1", recursive=False)
         userLen1 = None if userLen1_tag is None else float(userLen1_tag.text)
         return cls(track=track, userLen1=userLen1)
 
@@ -547,24 +549,24 @@ class Note:
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Note":
         assert tag.name == "Note"
-        track_tag = tag.find("track")
+        track_tag = tag.find("track", recursive=False)
         track = None if track_tag is None else int(track_tag.text)
-        visible_tag = tag.find("visible")
+        visible_tag = tag.find("visible", recursive=False)
         visible = None if visible_tag is None else bool(int(visible_tag.text))
 
-        pitch = int(tag.find("pitch").text)
-        tpc = int(tag.find("tpc").text)
-        tie = tag.find("Tie") is not None
+        pitch = int(tag.find("pitch", recursive=False).text)
+        tpc = int(tag.find("tpc", recursive=False).text)
+        tie = tag.find("Tie", recursive=False) is not None
 
-        Accidental_tag = tag.find("Accidental")
+        Accidental_tag = tag.find("Accidental", recursive=False)
         accidental = (
             None if Accidental_tag is None else Accidental.from_tag(Accidental_tag)
         )
-        Symbol_tag = tag.find("Symbol")
+        Symbol_tag = tag.find("Symbol", recursive=False)
         symbol = None if Symbol_tag is None else Symbol.from_tag(Symbol_tag)
-        veloType_tag = tag.find("veloType")
+        veloType_tag = tag.find("veloType", recursive=False)
         veloType = None if veloType_tag is None else veloType_tag.text
-        velocity_tag = tag.find("velocity")
+        velocity_tag = tag.find("velocity", recursive=False)
         velocity = None if velocity_tag is None else int(velocity_tag.text)
         return cls(
             track=track,
@@ -586,7 +588,7 @@ class Symbol:
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Symbol":
         assert tag.name == "Symbol"
-        name = tag.find("name").text
+        name = tag.find("name", recursive=False).text
         return cls(name=name)
 
 
@@ -599,9 +601,9 @@ class Accidental:
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Accidental":
         assert tag.name == "Accidental"
-        subtype = tag.find("subtype").text
-        track_tag = tag.find("track")
+        subtype = tag.find("subtype", recursive=False).text
+        track_tag = tag.find("track", recursive=False)
         track = None if track_tag is None else int(track_tag.text)
-        visible_tag = tag.find("visible")
+        visible_tag = tag.find("visible", recursive=False)
         visible = None if visible_tag is None else bool(int(visible_tag.text))
         return cls(subtype=subtype, track=track, visible=visible)
