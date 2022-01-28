@@ -64,8 +64,7 @@ class MuseScore:
         num_accidental_notes = 0
         midi_num_occurrence = {}
         notes = []
-        # TODO: only include 2 staff, that is for the Piano part
-        for staff in self.staffs:
+        for staff in self.get_piano_staffs():
             for measure in staff.measures:
                 for child in measure.children:
                     if isinstance(child, Note):
@@ -82,6 +81,27 @@ class MuseScore:
         PE = get_entropy(midi_num_occurrence)
         ANR = num_accidental_notes / len(notes)
         return Features(PE=PE, ANR=ANR)
+
+    def get_piano_staffs(self) -> list["Staff"]:
+        retval = []
+        i = 0
+        for part in self.parts:
+            if part.is_piano:
+                if len(part.staffs) == 2:
+                    retval.extend((self.staffs[i + 1], self.staffs[i + 2]))
+                elif len(part.staffs) == 1:
+                    # TODO: Log
+                    # retval.append(self.staffs[i+1])
+                    continue
+                else:
+                    # TODO: Log
+                    continue
+            else:
+                i += len(part.staffs)
+        if len(retval) != 0 and len(retval) != 2:
+            # TODO: Log
+            pass
+        return retval
 
 
 @define
@@ -128,6 +148,22 @@ class Part:
     staffs: list["Part.Staff"]
     name: Optional[str]  # known values: "Piano"
     instrument: "Instrument"
+
+    known_piano_values: ClassVar[list[str]] = [
+        "piano",
+        "grand piano",
+        "keyboard",
+        "pno.",
+    ]
+
+    @property
+    def is_piano(self) -> bool:
+        return (
+            self.name is not None and self.name.lower() in self.known_piano_values
+        ) or (
+            self.instrument.trackName is not None
+            and self.instrument.trackName.lower() in self.known_piano_values
+        )
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Part":
@@ -210,7 +246,7 @@ class Instrument:
 @define
 class Staff:
     # attributes
-    id: int
+    id: int  # starts at 1
 
     # child elements
     measures: list["Measure"]
