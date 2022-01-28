@@ -8,7 +8,8 @@ const devConfig = {
   output: {
     path: outputPath,
     filename: '[name].js',
-    publicPath: '/static',
+    publicPath: '/static/',
+    assetModuleFilename: 'img/[hash][ext][query]',
   },
   mode: 'development',
   devServer: {

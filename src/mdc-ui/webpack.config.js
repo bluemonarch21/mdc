@@ -28,8 +28,12 @@ const config = {
         use: [MiniCssExtractPlugin.loader, 'css-loader'],
       },
       {
-        test: /\.(svg|png)$/,
+        test: /\.(png|jpe?g|gif|webp)(\?.*)?$/,
         type: 'asset/resource',
+      },
+      {
+        test: /\.(svg)(\?.*)?$/,
+        type: 'asset',
       },
     ],
   },
