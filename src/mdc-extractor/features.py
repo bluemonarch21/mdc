@@ -4,6 +4,7 @@ from attr import define
 
 
 def get_entropy(dct: dict[any, int]) -> float:
+    """ Given a dict of [unique items, num occurrence], returns the entropy. """
     total = sum(dct.values())
     return -sum(v / total * math.log(v / total, 2) for v in dct.values())
 
