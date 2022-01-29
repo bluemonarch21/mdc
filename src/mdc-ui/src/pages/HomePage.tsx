@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Upload, message, Button } from 'antd';
 
+import mdc_robot from '../assets/mdc_robot.png';
 import { UploadIcon } from '../components/';
 
 import './HomePage.scss';
@@ -29,7 +30,7 @@ const HomePage: React.FC = () => {
   return (
     <div className='homePage'>
       <div>
-        <img src='/static/images/mdc_robot.png' alt='MDC Robot' className='homePage__robotImg' />
+        <img src={mdc_robot} alt='MDC Robot' className='homePage__robotImg' />
         <h1 className='homePage__header'>Music Difficulty Classifier</h1>
         <p className='homePage__message'>
           Hi. I’m the music difficulty classifier. I can tell how hard it is to play any piano pieces because I played

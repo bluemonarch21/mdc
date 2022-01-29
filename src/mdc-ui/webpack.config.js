@@ -29,7 +29,7 @@ const config = {
         use: [MiniCssExtractPlugin.loader, 'css-loader'],
       },
       {
-        test: /\.(svg|png)$/,
+        test: /\.(png|jpe?g|gif|webp)(\?.*)?$/,
         type: 'asset/resource',
       },
       {
@@ -43,6 +43,10 @@ const config = {
           // Compiles Sass to CSS
           'sass-loader',
         ],
+      },
+      {
+        test: /\.(svg)(\?.*)?$/,
+        type: 'asset',
       },
     ],
   },
@@ -79,14 +83,10 @@ const common = {
   config,
   createHtmlWebpackPlugin: function (assetName) {
     return new HtmlWebpackPlugin({
-      templateContent: ({ htmlWebpackPlugin }) => {
-        return JSON.stringify({
-          ...htmlWebpackPlugin.files,
-        });
-      },
-      inject: false,
-      filename: 'main-assets.json', // it will be in outputPath
-      chunks: 'all',
+      title: 'Music Difficulty Classifier',
+      template: path.resolve(__dirname, 'public/index.html'),
+      hash: true,
+      appMountId: 'root',
     });
   },
 };

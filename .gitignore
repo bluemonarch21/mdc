@@ -264,3 +264,4 @@ dist
 
 src/mdc-django/core/static/js/assets
 assets
+!src/**/assets
