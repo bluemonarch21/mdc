@@ -35,12 +35,16 @@ class MuseScore:
         programVersion = tag.find("programVersion", recursive=False).text
         programRevision = tag.find("programRevision", recursive=False).text
 
-        siglist = SigList(list(
-            map(
-                sig.from_tag,
-                tag.find("siglist", recursive=False).find_all("sig", recursive=False),
+        siglist = SigList(
+            list(
+                map(
+                    sig.from_tag,
+                    tag.find("siglist", recursive=False).find_all(
+                        "sig", recursive=False
+                    ),
+                )
             )
-        ))
+        )
 
         tempolist = list(
             map(
@@ -60,7 +64,9 @@ class MuseScore:
             parts=parts,
             staffs=[],
         )
-        staffs = list(map(Staff.from_tag, tag.find_all("Staff", recursive=False), cycle([inst])))
+        staffs = list(
+            map(Staff.from_tag, tag.find_all("Staff", recursive=False), cycle([inst]))
+        )
         inst.staffs = staffs
         return inst
 
@@ -127,28 +133,30 @@ class SigList:
                 yield tick, self.siglist[i].actual_measure_tick_length
                 tick += self.siglist[i].actual_measure_tick_length
                 continue
-            if (i == len(self.siglist) - 1) or (self.siglist[i].tick < tick < self.siglist[i + 1].tick):
+            if (i == len(self.siglist) - 1) or (
+                self.siglist[i].tick < tick < self.siglist[i + 1].tick
+            ):
                 yield tick, self.siglist[i].nominal_measure_tick_length
                 tick += self.siglist[i].nominal_measure_tick_length
                 continue
-            if tick > self.siglist[i].tick and tick >= self.siglist[i+1].tick:
+            if tick > self.siglist[i].tick and tick >= self.siglist[i + 1].tick:
                 i += 1
 
     def get_tick(self, measure: int) -> int:
-        """Returns the tick for the measure, given number"""
-        while measure > len(self.measure_ticks):
+        """Returns the tick for the measure, given index"""
+        while measure >= len(self.measure_ticks):
             tick, tick_length = self._iterator.__next__()
             self.measure_ticks.append(tick)
             self.measure_tick_lengths.append(tick_length)
-        return self.measure_ticks[measure - 1]
+        return self.measure_ticks[measure]
 
     def get_tick_length(self, measure: int) -> int:
-        """Returns the tick length for the measure, given number"""
-        while measure > len(self.measure_tick_lengths):
+        """Returns the tick length for the measure, given index"""
+        while measure >= len(self.measure_tick_lengths):
             tick, tick_length = self._iterator.__next__()
             self.measure_ticks.append(tick)
             self.measure_tick_lengths.append(tick_length)
-        return self.measure_tick_lengths[measure - 1]
+        return self.measure_tick_lengths[measure]
 
 
 @define
@@ -197,12 +205,18 @@ class sig:
     @property
     def nominal_measure_tick_length(self) -> int:
         """Nominal tick length of a measure"""
-        return get_tick_length(get_duration_type(self.nominal_denominator)) * self.nominal_nominator
+        return (
+            get_tick_length(get_duration_type(self.nominal_denominator))
+            * self.nominal_nominator
+        )
 
     @property
     def actual_measure_tick_length(self) -> int:
         """Actual tick length of the overwritten measure"""
-        return get_tick_length(get_duration_type(self.actual_denominator)) * self.actual_nominator
+        return (
+            get_tick_length(get_duration_type(self.actual_denominator))
+            * self.actual_nominator
+        )
 
 
 @define
@@ -263,8 +277,22 @@ class Part:
         @classmethod
         def from_tag(cls, tag: bs4.element.Tag) -> "Staff":
             assert tag.name == "Staff"
-            cleflist = list(map(clef.from_tag, tag.find("cleflist", recursive=False).find_all("clef", recursive=False)))
-            keylist = list(map(key.from_tag, tag.find("keylist", recursive=False).find_all( "key", recursive=False )))
+            cleflist = list(
+                map(
+                    clef.from_tag,
+                    tag.find("cleflist", recursive=False).find_all(
+                        "clef", recursive=False
+                    ),
+                )
+            )
+            keylist = list(
+                map(
+                    key.from_tag,
+                    tag.find("keylist", recursive=False).find_all(
+                        "key", recursive=False
+                    ),
+                )
+            )
             return cls(cleflist=cleflist, keylist=keylist)
 
 
@@ -321,7 +349,13 @@ class Staff:
         assert tag.name == "Staff"
         id_ = int(tag.get("id"))
         inst = cls(parent=parent, id=id_, measures=[])
-        list(map(Measure.from_tag, tag.find_all("Measure", recursive=False), cycle([inst])))
+        list(
+            map(
+                Measure.from_tag,
+                tag.find_all("Measure", recursive=False),
+                cycle([inst]),
+            )
+        )
         return inst
 
     def get_playing_speed(self) -> float:
@@ -329,7 +363,7 @@ class Staff:
         tempos: list[Tempo] = []
         tempos_with_no_tick: list[Tempo] = []
         tempo_chords: list[list[Chord]] = []
-        strokes: list[Union[Chord,Rest]]
+        strokes: list[Union[Chord, Rest]]
         stroke_ticks: list[int] = []
         for measure in self.measures:
             strokes = []
@@ -348,7 +382,9 @@ class Staff:
                         # print("use chord/rest.tick", child.tick)
                         stroke_ticks.append(child.tick)
                     else:
-                        previous_tick = stroke_ticks[-1] if stroke_ticks else measure.tick
+                        previous_tick = (
+                            stroke_ticks[-1] if stroke_ticks else measure.tick
+                        )
                         stroke_ticks.append(previous_tick + child.tick_length)
                     for t in tempos_with_no_tick:
                         if t.tick is None:
@@ -392,7 +428,7 @@ class Measure:
     parent: "Staff"
 
     # attributes
-    number: int  # v1, v2, not v3
+    number: int  # v1, v2, not v3  # may just be the display measure number (some are excluded from counting)
     len: Optional[str]  # v3 # known values: "3/4"
 
     # child elements
@@ -401,6 +437,8 @@ class Measure:
     children: list[
         Union["Rest", "Chord", "Tuplet", "Harmony", "Dynamic", "Tempo", "Clef"]
     ]  # Order matters!!
+
+    idx: int = field(init=False)
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag, parent: "Staff") -> "Measure":
@@ -435,15 +473,18 @@ class Measure:
                 continue
 
         idx = parent.measures.__len__()
-        assert number == idx + 1, f"number={number} idx={idx}"
+        # assert number == idx + 1, f"{number=} {idx=} {parent.id=} {parent.measures[-1].children=}"
         inst = cls(
-            parent=parent, number=number, len=len_, keySig=keySig, timeSig=timeSig, children=children
+            parent=parent,
+            number=number,
+            len=len_,
+            keySig=keySig,
+            timeSig=timeSig,
+            children=children,
         )
+        inst.idx = idx
+        # print(idx, end=' ')
         parent.measures.append(inst)
-
-    @property
-    def idx(self) -> int:
-        return self.number - 1
 
     @property
     def previous(self) -> Optional["Measure"]:
@@ -451,7 +492,7 @@ class Measure:
 
     @property
     def tick(self) -> int:
-        return self.parent.parent.siglist.get_tick(measure=self.number)
+        return self.parent.parent.siglist.get_tick(measure=self.idx)
         # if self.idx == 0:
         #     return 0
         # return self.previous.tick + self.previous.tick_length
@@ -459,7 +500,7 @@ class Measure:
     @property
     def tick_length(self) -> int:
         # just ask MuseScore class
-        return self.parent.parent.siglist.get_tick_length(measure=self.number)
+        return self.parent.parent.siglist.get_tick_length(measure=self.idx)
         # for v2, v3
         # for child in self.children:
         #     if isinstance(child, TimeSig):
