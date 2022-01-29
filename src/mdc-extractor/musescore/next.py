@@ -132,7 +132,7 @@ def newMuseScore(soup: BeautifulSoup) -> Union[v1.MuseScore, None]:
 # class Measure:
 #     # as keys?
 #     number: int  # v2, not v3
-#     len: Optional[str]  # v3 # known values: "3/4"
+#     len: Optional[str]  # v3 # known values: "3/4", "7/4" (actual time signature)
 #
 #     # children
 #     voice: list["voice"]  # v3, not v2

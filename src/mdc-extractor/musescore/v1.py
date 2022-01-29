@@ -1,9 +1,11 @@
-from typing import ClassVar, Optional, Union
+from itertools import cycle
+from typing import ClassVar, Optional, Union, Generator, Iterator, Tuple
 
 import bs4.element
-from attr import define
+from attr import define, field, frozen
 
 from features import Features, get_entropy
+from musescore.utils import get_bpm, get_pulsation, get_duration_type, get_tick_length
 
 
 @define
@@ -14,10 +16,10 @@ class MuseScore:
     # child elements
     programVersion: str
     programRevision: str
-    siglist: list["sig"]  # v1.14 only
-    tempolist: list["tempo"]  # v1.14 only
-    parts: list["Part"]  # v1.14 only
-    staffs: list["Staff"]  # v1.14 only
+    siglist: "SigList"
+    tempolist: list["tempo"]
+    parts: list["Part"]
+    staffs: list["Staff"]
 
     # class variables
     known_versions: ClassVar[list[str]] = ["1.14"]
@@ -33,12 +35,13 @@ class MuseScore:
         programVersion = tag.find("programVersion", recursive=False).text
         programRevision = tag.find("programRevision", recursive=False).text
 
-        siglist = list(
+        siglist = SigList(list(
             map(
                 sig.from_tag,
                 tag.find("siglist", recursive=False).find_all("sig", recursive=False),
             )
-        )
+        ))
+
         tempolist = list(
             map(
                 tempo.from_tag,
@@ -48,27 +51,28 @@ class MuseScore:
             )
         )
         parts = list(map(Part.from_tag, tag.find_all("Part", recursive=False)))
-        staffs = list(map(Staff.from_tag, tag.find_all("Staff", recursive=False)))
-
-        return cls(
+        inst = cls(
             version=version,
             programVersion=programVersion,
             programRevision=programRevision,
             siglist=siglist,
             tempolist=tempolist,
             parts=parts,
-            staffs=staffs,
+            staffs=[],
         )
+        staffs = list(map(Staff.from_tag, tag.find_all("Staff", recursive=False), cycle([inst])))
+        inst.staffs = staffs
+        return inst
 
     def get_features(self) -> "Features":
         num_accidental_notes = 0
         midi_num_occurrence = {}
-        notes = []
+        notes: list[Note] = []
         for staff in self.get_piano_staffs():
             for measure in staff.measures:
                 for child in measure.children:
-                    if isinstance(child, Note):
-                        notes.append(child)
+                    if isinstance(child, Chord):
+                        notes.extend(child.notes)
         for note in notes:
             # count midi numbers
             if note.pitch in midi_num_occurrence:
@@ -80,7 +84,7 @@ class MuseScore:
                 num_accidental_notes += 1
         PE = get_entropy(midi_num_occurrence)
         ANR = num_accidental_notes / len(notes)
-        return Features(PE=PE, ANR=ANR)
+        return Features(PE=PE, ANR=ANR, PS=0, DSR=0)
 
     def get_piano_staffs(self) -> list["Staff"]:
         retval = []
@@ -88,20 +92,63 @@ class MuseScore:
         for part in self.parts:
             if part.is_piano:
                 if len(part.staffs) == 2:
-                    retval.extend((self.staffs[i + 1], self.staffs[i + 2]))
+                    retval.extend((self.staffs[i], self.staffs[i + 1]))
                 elif len(part.staffs) == 1:
                     # TODO: Log
-                    # retval.append(self.staffs[i+1])
-                    continue
+                    # retval.append(self.staffs[i])
+                    pass
                 else:
                     # TODO: Log
-                    continue
-            else:
-                i += len(part.staffs)
+                    pass
+            i += len(part.staffs)
         if len(retval) != 0 and len(retval) != 2:
             # TODO: Log
             pass
         return retval
+
+
+@frozen
+class SigList:
+    """Provides access to calculated measure ticks from <siglist>"""
+
+    siglist: list["sig"]
+    measure_ticks: list[int] = field(init=False, factory=list)
+    measure_tick_lengths: list[int] = field(init=False, factory=list)
+    _iterator: Iterator[tuple[int, int]] = field(init=False)
+
+    def __attrs_post_init__(self):
+        object.__setattr__(self, "_iterator", self._iterate())
+
+    def _iterate(self) -> Iterator[tuple[int, int]]:
+        tick = 0
+        i = 0
+        while True:
+            if tick == self.siglist[i].tick:
+                yield tick, self.siglist[i].actual_measure_tick_length
+                tick += self.siglist[i].actual_measure_tick_length
+                continue
+            if (i == len(self.siglist) - 1) or (self.siglist[i].tick < tick < self.siglist[i + 1].tick):
+                yield tick, self.siglist[i].nominal_measure_tick_length
+                tick += self.siglist[i].nominal_measure_tick_length
+                continue
+            if tick > self.siglist[i].tick and tick >= self.siglist[i+1].tick:
+                i += 1
+
+    def get_tick(self, measure: int) -> int:
+        """Returns the tick for the measure, given number"""
+        while measure > len(self.measure_ticks):
+            tick, tick_length = self._iterator.__next__()
+            self.measure_ticks.append(tick)
+            self.measure_tick_lengths.append(tick_length)
+        return self.measure_ticks[measure - 1]
+
+    def get_tick_length(self, measure: int) -> int:
+        """Returns the tick length for the measure, given number"""
+        while measure > len(self.measure_tick_lengths):
+            tick, tick_length = self._iterator.__next__()
+            self.measure_ticks.append(tick)
+            self.measure_tick_lengths.append(tick_length)
+        return self.measure_tick_lengths[measure - 1]
 
 
 @define
@@ -110,10 +157,10 @@ class sig:
     tick: int
 
     # child elements
-    nom: int
-    denom: int
-    nom2: Optional[int]
-    denom2: Optional[int]
+    nom: int  # actual (how many notes in that measure) (e.g. pickup measure)
+    denom: int  # actual
+    nom2: Optional[int]  # nominal (the time signature) if different from actual
+    denom2: Optional[int]  # nominal (the time signature) if different from actual
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "sig":
@@ -127,12 +174,42 @@ class sig:
         denom2 = None if denom2_tag is None else int(denom2_tag.text)
         return cls(tick=tick, nom=nom, nom2=nom2, denom=denom, denom2=denom2)
 
+    @property
+    def actual_nominator(self) -> int:
+        """How many beats in that measure. Different from nominal in case of pickup measures."""
+        return self.nom
+
+    @property
+    def nominal_nominator(self) -> int:
+        """How many beats in a measure"""
+        return self.nom if self.nom2 is None else self.nom2
+
+    @property
+    def actual_denominator(self) -> int:
+        """What note is a single beat. Different from nominal in case of pickup measures."""
+        return self.denom
+
+    @property
+    def nominal_denominator(self) -> int:
+        """What note is a single beat"""
+        return self.denom if self.denom2 is None else self.denom2
+
+    @property
+    def nominal_measure_tick_length(self) -> int:
+        """Nominal tick length of a measure"""
+        return get_tick_length(get_duration_type(self.nominal_denominator)) * self.nominal_nominator
+
+    @property
+    def actual_measure_tick_length(self) -> int:
+        """Actual tick length of the overwritten measure"""
+        return get_tick_length(get_duration_type(self.actual_denominator)) * self.actual_nominator
+
 
 @define
 class tempo:
     # attributes
-    tick: int
-    text: float
+    tick: int  # time but not in seconds
+    text: float  # e.g. 1.33333, 1.66667
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "tempo":
@@ -186,22 +263,8 @@ class Part:
         @classmethod
         def from_tag(cls, tag: bs4.element.Tag) -> "Staff":
             assert tag.name == "Staff"
-            cleflist = list(
-                map(
-                    clef.from_tag,
-                    tag.find("cleflist", recursive=False).find_all(
-                        "clef", recursive=False
-                    ),
-                )
-            )
-            keylist = list(
-                map(
-                    key.from_tag,
-                    tag.find("keylist", recursive=False).find_all(
-                        "key", recursive=False
-                    ),
-                )
-            )
+            cleflist = list(map(clef.from_tag, tag.find("cleflist", recursive=False).find_all("clef", recursive=False)))
+            keylist = list(map(key.from_tag, tag.find("keylist", recursive=False).find_all( "key", recursive=False )))
             return cls(cleflist=cleflist, keylist=keylist)
 
 
@@ -245,6 +308,8 @@ class Instrument:
 
 @define
 class Staff:
+    parent: "MuseScore"
+
     # attributes
     id: int  # starts at 1
 
@@ -252,15 +317,80 @@ class Staff:
     measures: list["Measure"]
 
     @classmethod
-    def from_tag(cls, tag: bs4.element.Tag) -> "Staff":
+    def from_tag(cls, tag: bs4.element.Tag, parent: "MuseScore") -> "Staff":
         assert tag.name == "Staff"
         id_ = int(tag.get("id"))
-        measures = list(map(Measure.from_tag, tag.find_all("Measure", recursive=False)))
-        return cls(id=id_, measures=measures)
+        inst = cls(parent=parent, id=id_, measures=[])
+        list(map(Measure.from_tag, tag.find_all("Measure", recursive=False), cycle([inst])))
+        return inst
+
+    def get_playing_speed(self) -> float:
+        # TODO: Separate out tempo so that LHS also has tempo
+        tempos: list[Tempo] = []
+        tempos_with_no_tick: list[Tempo] = []
+        tempo_chords: list[list[Chord]] = []
+        strokes: list[Union[Chord,Rest]]
+        stroke_ticks: list[int] = []
+        for measure in self.measures:
+            strokes = []
+            stroke_ticks = []
+            for child in measure.children:
+                if isinstance(child, Tempo):
+                    tempos.append(child)
+                    # print(''.join(filter(str.isnumeric, child.text)))
+                    tempo_chords.append([])
+                    if child.tick is None:
+                        tempos_with_no_tick.append(child)
+                    continue
+                if isinstance(child, (Chord, Rest)):
+                    strokes.append(child)
+                    if child.tick is not None:
+                        # print("use chord/rest.tick", child.tick)
+                        stroke_ticks.append(child.tick)
+                    else:
+                        previous_tick = stroke_ticks[-1] if stroke_ticks else measure.tick
+                        stroke_ticks.append(previous_tick + child.tick_length)
+                    for t in tempos_with_no_tick:
+                        if t.tick is None:
+                            # print("use stroke tick")
+                            t.tick = stroke_ticks[-1]
+                    tempos_with_no_tick = []
+                    if isinstance(child, Chord):
+                        try:
+                            tempo_chords[-1].append(child)
+                        except:
+                            print(child)
+                            print([t.bpm for t in tempos])
+                            print([[c.tick for c in lst] for lst in tempo_chords])
+                            raise
+        playing_speeds = []
+        for tempo, chords in zip(tempos, tempo_chords):
+            if chords:
+                ps = sum(c.pulsation for c in chords) / tempo.tempo / len(chords)
+                playing_speeds.append(ps)
+            else:
+                playing_speeds.append(0)
+
+        # calculate average PS
+        total_area = 0
+        for i in range(len(tempos)):
+            if i == len(tempos) - 1:
+                # maybe do: handle no strokes?
+                del_x = stroke_ticks[-1] - tempos[i].tick
+            else:
+                del_x = tempos[i + 1].tick - tempos[i].tick
+            y = playing_speeds[i]
+            total_area += del_x * y
+        avg_ps = total_area / stroke_ticks[-1]
+
+        # TODO: numpy calculate variance PS
+        return avg_ps
 
 
 @define
 class Measure:
+    parent: "Staff"
+
     # attributes
     number: int  # v1, v2, not v3
     len: Optional[str]  # v3 # known values: "3/4"
@@ -273,9 +403,9 @@ class Measure:
     ]  # Order matters!!
 
     @classmethod
-    def from_tag(cls, tag: bs4.element.Tag) -> "Measure":
+    def from_tag(cls, tag: bs4.element.Tag, parent: "Staff") -> "Measure":
         assert tag.name == "Measure"
-        number = tag.get("number")
+        number = int(tag.get("number"))
         len_ = tag.get("len")
 
         KeySig_tag = tag.find("KeySig", recursive=False)
@@ -304,9 +434,37 @@ class Measure:
                 # TODO: log NEW skipped tag
                 continue
 
-        return cls(
-            number=number, len=len_, keySig=keySig, timeSig=timeSig, children=children
+        idx = parent.measures.__len__()
+        assert number == idx + 1, f"number={number} idx={idx}"
+        inst = cls(
+            parent=parent, number=number, len=len_, keySig=keySig, timeSig=timeSig, children=children
         )
+        parent.measures.append(inst)
+
+    @property
+    def idx(self) -> int:
+        return self.number - 1
+
+    @property
+    def previous(self) -> Optional["Measure"]:
+        return None if self.idx == 0 else self.parent.measures[self.idx - 1]
+
+    @property
+    def tick(self) -> int:
+        return self.parent.parent.siglist.get_tick(measure=self.number)
+        # if self.idx == 0:
+        #     return 0
+        # return self.previous.tick + self.previous.tick_length
+
+    @property
+    def tick_length(self) -> int:
+        # just ask MuseScore class
+        return self.parent.parent.siglist.get_tick_length(measure=self.number)
+        # for v2, v3
+        # for child in self.children:
+        #     if isinstance(child, TimeSig):
+        #         return child.measure_tick_length
+        # return self.previous.tick_length
 
 
 @define
@@ -314,8 +472,9 @@ class Tempo:
     tempo: float
     style: int
     subtype: str  # known values: "Tempo"
-    text: str  # important! text is here  e.g. "Larghetto"
-    # TODO: parse into tempo name + BPM
+    _tick: Optional[int]
+    text: str  # important! text is here  e.g. "Larghetto" # TODO: parse into tempo name + BPM
+    _cal_tick: Optional[int] = field(init=False, default=None)
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Tempo":
@@ -324,8 +483,24 @@ class Tempo:
         style = int(tag.find("style", recursive=False).text)
         subtype = tag.find("subtype", recursive=False).text
         assert subtype == "Tempo"
+        tick_tag = tag.find("tick", recursive=False)
+        tick = None if tick_tag is None else int(tick_tag.text)
+        # TODO: clean html better
         text = tag.find("html-data", recursive=False).text
-        return cls(tempo=tempo, style=style, subtype=subtype, text=text)
+        return cls(tempo=tempo, style=style, subtype=subtype, tick=tick, text=text)
+
+    @property
+    def bpm(self) -> float:
+        """Beats Per Minute"""
+        return get_bpm(self.tempo)
+
+    @property
+    def tick(self) -> Optional[int]:
+        return self._tick or self._cal_tick
+
+    @tick.setter
+    def tick(self, value: int):
+        self._cal_tick = value
 
 
 @define
@@ -369,6 +544,24 @@ class TimeSig:
         nom2_tag = tag.find("nom2", recursive=False)
         nom2 = None if nom2_tag is None else int(nom2_tag.text)
         return cls(subtype=subtype, tick=tick, den=den, nom1=nom1, nom2=nom2)
+
+    @property
+    def denominator_duration_type(self) -> str:
+        """Specifies the durationType of a single beat"""
+        return get_duration_type(self.den)
+
+    @property
+    def nominator(self) -> int:
+        """Number of beats in one measure"""
+        if self.nom2 is not None and self.nom2 != self.nom1:
+            print(self)
+            # TODO: log
+        return self.nom2 if self.nom2 is not None else self.nom1
+
+    @property
+    def measure_tick_length(self) -> int:
+        """Tick length of a measure under this time signature"""
+        return get_tick_length(self.denominator_duration_type) * self.nominator
 
 
 @define
@@ -512,9 +705,10 @@ class Harmony:  # TODO: Find sample in v1
 class Rest:
     visible: Optional[bool]
     tick: Optional[int]
-    durationType: str  # known values: "whole", "half", "quarter", "eight", "16th", "32nd", "64th", "128th"
-    dots: Optional[int]
+    durationType: str  # known values: "measure", "whole", "half", "quarter", "eight", "16th", "32nd", "64th", "128th"
+    dots: int
 
+    # TODO: durationType "measure"
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Rest":
         assert tag.name == "Rest"
@@ -523,9 +717,17 @@ class Rest:
         tick_tag = tag.find("tick", recursive=False)
         tick = None if tick_tag is None else int(tick_tag.text)
         dots_tag = tag.find("dots", recursive=False)
-        dots = None if dots_tag is None else int(dots_tag.text)
+        dots = 0 if dots_tag is None else int(dots_tag.text)
         durationType = tag.find("durationType", recursive=False).text
         return cls(visible=visible, tick=tick, durationType=durationType, dots=dots)
+
+    @property
+    def pulsation(self) -> float:
+        return get_pulsation(self.durationType, self.dots)
+
+    @property
+    def tick_length(self) -> int:
+        return get_tick_length(self.durationType, self.dots)
 
 
 @define
@@ -533,7 +735,7 @@ class Chord:  # TODO
     track: Optional[int]  # v1 known values: "6" # v2.06 known values: "1" = voice 2
     tick: Optional[int]
     tuplet_id: Optional[int]  # v1 # know values: -> matches Tuplet on the outside's id
-    dots: Optional[int]
+    dots: int
     durationType: str  # known values: "whole", "half", "quarter", "eight", "16th", "32nd", "64th", "128th"
     # lyrics: Optional[str]
     slur: Optional["Slur"]
@@ -553,7 +755,7 @@ class Chord:  # TODO
         Tuplet_tag = tag.find("Tuplet", recursive=False)
         tuplet_id = None if Tuplet_tag is None else int(Tuplet_tag.text)
         dots_tag = tag.find("dots", recursive=False)
-        dots = None if dots_tag is None else int(dots_tag.text)
+        dots = 0 if dots_tag is None else int(dots_tag.text)
         durationType = tag.find("durationType", recursive=False).text
 
         Slur_tag = tag.find("Slur", recursive=False)
@@ -583,6 +785,14 @@ class Chord:  # TODO
             articulation=articulation,
             arpeggio=arpeggio,
         )
+
+    @property
+    def pulsation(self) -> float:
+        return get_pulsation(self.durationType, self.dots)
+
+    @property
+    def tick_length(self) -> int:
+        return get_tick_length(self.durationType, self.dots)
 
 
 @define

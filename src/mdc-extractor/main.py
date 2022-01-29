@@ -24,7 +24,16 @@ if __name__ == "__main__":
         soup = BeautifulSoup(openfile, "xml")
         musescore = newMuseScore(soup)
         if musescore is not None:
-            print(zfp.stem, filename, "parsed")
+            if musescore.get_piano_staffs():
+                print(zfp.stem, filename, "parsed")
+                rh_avg_ps = musescore.get_piano_staffs()[0].get_playing_speed()
+                f = musescore.get_features()
+                print(f"RHS.PS.avg={rh_avg_ps}",
+                      # f"LHS.PS.avg={lh_avg_ps}",
+                      f"PE={f.PE}",
+                      f"ANR={f.ANR}",
+                      )
+
         continue
 
         version = soup.find("museScore").get("version")
