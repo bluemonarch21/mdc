@@ -1,8 +1,9 @@
-from django.urls import re_path
+from django.urls import path, re_path
 
 from . import views
 
 app_name = "core"
 urlpatterns = [
-    re_path(r"^(?!admin).*", views.index2, name="index"),
+    path("upload", views.upload_file, name="upload"),
+    re_path(r"^(?!admin).*", views.index, name="index"),
 ]

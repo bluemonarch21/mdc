@@ -9,8 +9,9 @@
   <title>MDC</title>
 </head>
 
-<body style="margin: 0">
-  <div id="root" style="height: 100vh; overflow: hidden"></div>
+<body style="margin: 0;">
+  {% csrf_token %}
+  <div id="root"></div>
   {% for j in js %}
   <script src="static{{ j }}"></script>
   {% endfor %}

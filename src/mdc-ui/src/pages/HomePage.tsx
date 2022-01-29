@@ -8,13 +8,29 @@ import { UploadIcon } from '../components/';
 
 import './HomePage.scss';
 
+function getCookie(name: string): string {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      // Does this cookie string begin with the name we want?
+      if (cookie.substring(0, name.length + 1) === name + '=') {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue as string;
+}
+
 const HomePage: React.FC = () => {
   const uploadProps = {
     name: 'file',
     // add API to store the uploaded file
-    action: 'https://www.mocky.io/v2/5cc8019d300000980a055e76',
+    action: 'upload',
     headers: {
-      authorization: 'authorization-text',
+      'X-CSRFToken': getCookie('csrftoken'),
     },
     onChange(info: any) {
       if (info.file.status !== 'uploading') {

@@ -262,6 +262,9 @@ dist
 
 ### PROJECT ###
 
-src/mdc-django/core/static/js/assets
 assets
 !src/**/assets
+src/mdc-django/core/static/js/assets
+
+
+src/mdc-django/userupload
