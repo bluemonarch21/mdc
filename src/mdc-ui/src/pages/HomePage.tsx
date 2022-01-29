@@ -2,7 +2,10 @@ import React from 'react';
 
 import { Link } from 'react-router-dom';
 import { Upload, message, Button } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+
+import { UploadIcon } from '../components/';
+
+import './HomePage.scss';
 
 const HomePage: React.FC = () => {
   const uploadProps = {
@@ -24,10 +27,22 @@ const HomePage: React.FC = () => {
     },
   };
   return (
-    <div>
-      <Upload {...uploadProps}>
-        <Button icon={<UploadOutlined />}>Click to Upload</Button>
-      </Upload>,
+    <div className='homePage'>
+      <div>
+        <img src='/static/images/mdc_robot.png' alt='MDC Robot' className='homePage__robotImg' />
+        <h1 className='homePage__header'>Music Difficulty Classifier</h1>
+        <p className='homePage__message'>
+          Hi. I’m the music difficulty classifier. I can tell how hard it is to play any piano pieces because I played
+          them all.
+        </p>
+        <p className='homePage__message'>Let’s see what you’ve got!</p>
+        <Upload {...uploadProps} className='homePage__upload'>
+          <Button icon={<UploadIcon />} className='homePage__uploadButton'>
+            UPLOAD A FILE
+          </Button>
+        </Upload>
+        <p className='homePage__source'>a Kasetsart University B.Eng. Project・GitHub・Privacy</p>
+      </div>
     </div>
   );
 };

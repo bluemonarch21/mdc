@@ -1,9 +1,10 @@
+const path = require('path');
+
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
-const path = require('path');
 
 const entry = {
   main: path.resolve(__dirname, 'src/index.tsx'),
@@ -30,6 +31,18 @@ const config = {
       {
         test: /\.(svg|png)$/,
         type: 'asset/resource',
+      },
+      {
+        test: /\.s[ac]ss$/i,
+        exclude: /\.module.(s(a|c)ss)$/,
+        use: [
+          // Creates `style` nodes from JS strings
+          'style-loader',
+          // Translates CSS into CommonJS
+          'css-loader',
+          // Compiles Sass to CSS
+          'sass-loader',
+        ],
       },
     ],
   },

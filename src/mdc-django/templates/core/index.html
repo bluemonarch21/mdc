@@ -1,16 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   {% for i in css %}
-    <link rel="stylesheet" href="static{{ i }}" />
+  <link rel="stylesheet" href="static{{ i }}" />
   {% endfor %}
   <title>MDC</title>
 </head>
-<body>
-  <div id="root"></div>
+
+<body style="margin: 0">
+  <div id="root" style="height: 100vh; overflow: hidden"></div>
   {% for j in js %}
-    <script src="static{{ j }}"></script>
+  <script src="static{{ j }}"></script>
   {% endfor %}
 </body>
+
 </html>
