@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   {% for i in css %}
-  <link rel="stylesheet" href="static{{ i }}" />
+  <link rel="stylesheet" href="{{ i }}" />
   {% endfor %}
   <title>MDC</title>
 </head>
@@ -13,7 +13,7 @@
   {% csrf_token %}
   <div id="root"></div>
   {% for j in js %}
-  <script src="static{{ j }}"></script>
+  <script src="{{ j }}"></script>
   {% endfor %}
 </body>
 

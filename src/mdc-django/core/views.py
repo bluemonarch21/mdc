@@ -10,7 +10,7 @@ from .forms import UploadFileForm
 
 
 def index(request):
-    with open(BASE_DIR / "core/static/js/assets/main-assets.json", "r") as file:
+    with open(BASE_DIR / "core/static/main-assets.json", "r") as file:
         main_assets = json.load(file)
     context = {
         "css": main_assets["css"],

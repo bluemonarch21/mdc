@@ -264,7 +264,6 @@ dist
 
 assets
 !src/**/assets
-src/mdc-django/core/static/js/assets
-
+src/mdc-django/core/static/
 
 src/mdc-django/userupload
