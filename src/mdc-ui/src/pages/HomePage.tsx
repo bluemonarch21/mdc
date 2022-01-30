@@ -2,13 +2,14 @@ import React from 'react';
 
 import { Link } from 'react-router-dom';
 import { Upload, message, Button } from 'antd';
+import { UploadProps } from 'antd/lib/upload/interface';
 
 import mdc_robot from '../assets/mdc_robot.png';
 import { UploadIcon } from '../components/';
 
 import './HomePage.scss';
 
-function getCookie(name: string): string {
+function getCookie(name: string): string | null {
   let cookieValue = null;
   if (document.cookie && document.cookie !== '') {
     const cookies = document.cookie.split(';');
@@ -21,18 +22,18 @@ function getCookie(name: string): string {
       }
     }
   }
-  return cookieValue as string;
+  return cookieValue;
 }
 
 const HomePage: React.FC = () => {
-  const uploadProps = {
+  const uploadProps: UploadProps = {
     name: 'file',
     // add API to store the uploaded file
     action: 'upload',
     headers: {
-      'X-CSRFToken': getCookie('csrftoken'),
+      'X-CSRFToken': getCookie('csrftoken') as string,
     },
-    onChange(info: any) {
+    onChange(info) {
       if (info.file.status !== 'uploading') {
         console.log(info.file, info.fileList);
       }
