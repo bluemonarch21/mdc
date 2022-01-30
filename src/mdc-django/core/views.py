@@ -1,6 +1,7 @@
 import datetime
 import json
 
+from django.core.files.uploadedfile import UploadedFile
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 
@@ -38,11 +39,11 @@ def upload_file(request):
     return HttpResponseRedirect("/unsuccess/url/")
 
 
-def handle_uploaded_file(f):
+def handle_uploaded_file(f: UploadedFile):
     date = datetime.datetime.now()
     path = BASE_DIR / "userupload"
     if not path.exists():
         path.mkdir()
-    with open(BASE_DIR / f"userupload/{hash(date)}", "wb+") as destination:
+    with open(BASE_DIR / f"userupload/{hash(date) % 10 ** 8}-{f.name}", "wb+") as destination:
         for chunk in f.chunks():
             destination.write(chunk)
