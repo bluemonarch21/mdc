@@ -3,6 +3,7 @@ __all__ = [
     "get_duration_type",
     "get_pulsation",
     "get_tick_length",
+    "tick_length_to_pulsation",
 ]
 
 
@@ -51,6 +52,10 @@ def get_pulsation(duration_type: str, dots: int = 0) -> float:
 def get_tick_length(duration_type: str, dots: int = 0) -> int:
     x = get_pulsation(duration_type) * 480 * get_dots_factor(dots)
     return round(x)
+
+
+def tick_length_to_pulsation(tick_length: int) -> float:
+    return tick_length / 480
 
 
 _time_signature_duration_type = {

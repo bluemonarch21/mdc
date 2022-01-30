@@ -4,8 +4,9 @@ from typing import ClassVar, Optional, Union, Generator, Iterator, Tuple
 import bs4.element
 from attr import define, field, frozen
 
+from arrutils import bisect
 from features import Features, get_entropy
-from musescore.utils import get_bpm, get_pulsation, get_duration_type, get_tick_length
+from musescore.utils import get_bpm, get_pulsation, get_duration_type, get_tick_length, tick_length_to_pulsation
 
 
 @define
@@ -23,6 +24,9 @@ class MuseScore:
 
     # class variables
     known_versions: ClassVar[list[str]] = ["1.14"]
+
+    tempos: list["Tempo"] = field(init=False, factory=list)
+    tempo_ticks: list[int] = field(init=False, factory=list)
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "MuseScore":
@@ -68,6 +72,7 @@ class MuseScore:
             map(Staff.from_tag, tag.find_all("Staff", recursive=False), cycle([inst]))
         )
         inst.staffs = staffs
+        inst.count_tempos()
         return inst
 
     def get_features(self) -> "Features":
@@ -111,6 +116,37 @@ class MuseScore:
             # TODO: Log
             pass
         return retval
+
+    def count_tempos(self) -> None:
+        tempos: list[Tempo] = []
+        for staff in self.staffs:
+            tempos_with_no_tick: list[Tempo] = []
+            for measure in staff.measures:
+                strokes: list[Union[Chord, Rest]] = []
+                stroke_ticks: list[int] = []
+                for child in measure.children:
+                    if isinstance(child, Tempo):
+                        tempos.append(child)
+                        if child.tick is None:
+                            tempos_with_no_tick.append(child)
+                        continue
+                    if isinstance(child, (Chord, Rest)):
+                        strokes.append(child)
+                        if child.tick is not None:
+                            stroke_ticks.append(child.tick)
+                        else:
+                            previous_tick = (
+                                stroke_ticks[-1] if stroke_ticks else measure.tick
+                            )
+                            stroke_ticks.append(previous_tick + child.tick_length)
+                        for t in tempos_with_no_tick:
+                            if t.tick is None:
+                                t.tick = stroke_ticks[-1]
+                        tempos_with_no_tick = []
+            assert not tempos_with_no_tick, tempos_with_no_tick
+            tempos.sort(key=lambda t: t.tick)
+        self.tempos = tempos
+        self.tempo_ticks = [t.tick for t in tempos]
 
 
 @frozen
@@ -359,63 +395,49 @@ class Staff:
         return inst
 
     def get_playing_speed(self) -> float:
-        # TODO: Separate out tempo so that LHS also has tempo
-        tempos: list[Tempo] = []
-        tempos_with_no_tick: list[Tempo] = []
-        tempo_chords: list[list[Chord]] = []
-        strokes: list[Union[Chord, Rest]]
-        stroke_ticks: list[int] = []
+        tempo_chords: list[list[Chord]] = [[] for _ in range(len(self.parent.tempos))]
+        if not tempo_chords:
+            return None
         for measure in self.measures:
-            strokes = []
-            stroke_ticks = []
+            strokes: list[Union[Chord, Rest]] = []
+            stroke_ticks: list[int] = []
             for child in measure.children:
-                if isinstance(child, Tempo):
-                    tempos.append(child)
-                    # print(''.join(filter(str.isnumeric, child.text)))
-                    tempo_chords.append([])
-                    if child.tick is None:
-                        tempos_with_no_tick.append(child)
-                    continue
                 if isinstance(child, (Chord, Rest)):
                     strokes.append(child)
                     if child.tick is not None:
-                        # print("use chord/rest.tick", child.tick)
                         stroke_ticks.append(child.tick)
                     else:
                         previous_tick = (
                             stroke_ticks[-1] if stroke_ticks else measure.tick
                         )
                         stroke_ticks.append(previous_tick + child.tick_length)
-                    for t in tempos_with_no_tick:
-                        if t.tick is None:
-                            # print("use stroke tick")
-                            t.tick = stroke_ticks[-1]
-                    tempos_with_no_tick = []
                     if isinstance(child, Chord):
+                        tempo_idx = bisect(self.parent.tempo_ticks, stroke_ticks[-1])[1] - 1
                         try:
-                            tempo_chords[-1].append(child)
-                        except:
-                            print(child)
-                            print([t.bpm for t in tempos])
-                            print([[c.tick for c in lst] for lst in tempo_chords])
+                            tempo_chords[tempo_idx].append(child)
+                        except IndexError:
+                            print(tempo_idx)
+                            print([(t.tick, t.tempo) for t in self.parent.tempos])
                             raise
+
+        total_area = 0
         playing_speeds = []
-        for tempo, chords in zip(tempos, tempo_chords):
+        for i in range(len(tempo_chords)):
+            tempo = self.parent.tempos[i]
+            chords = tempo_chords[i]
+            # calculate PS
             if chords:
                 ps = sum(c.pulsation for c in chords) / tempo.tempo / len(chords)
-                playing_speeds.append(ps)
             else:
-                playing_speeds.append(0)
-
-        # calculate average PS
-        total_area = 0
-        for i in range(len(tempos)):
-            if i == len(tempos) - 1:
+                ps = 0
+            playing_speeds.append(ps)
+            # calculate average PS
+            if i == len(self.parent.tempos) - 1: # last element
                 # maybe do: handle no strokes?
-                del_x = stroke_ticks[-1] - tempos[i].tick
+                del_x = stroke_ticks[-1] - tempo.tick
             else:
-                del_x = tempos[i + 1].tick - tempos[i].tick
-            y = playing_speeds[i]
+                del_x = self.parent.tempos[i + 1].tick - tempo.tick
+            y = ps
             total_area += del_x * y
         avg_ps = total_area / stroke_ticks[-1]
 
@@ -451,27 +473,6 @@ class Measure:
         TimeSig_tag = tag.find("TimeSig", recursive=False)
         timeSig = None if TimeSig_tag is None else TimeSig.from_tag(TimeSig_tag)
 
-        children = []
-        for child in tag.children:
-            if not isinstance(child, bs4.element.Tag):
-                continue
-            if child.name == "Dynamic":
-                children.append(Dynamic.from_tag(child))
-            elif child.name == "Tempo":
-                children.append(Tempo.from_tag(child))
-            elif child.name == "Tempo":
-                children.append(Tempo.from_tag(child))
-            elif child.name == "Chord":
-                children.append(Chord.from_tag(child))
-            elif child.name == "Clef":
-                children.append(Clef.from_tag(child))
-            elif child.name in ["Beam", "LayoutBreak", "BarLine"]:
-                # TODO: log skipped tag
-                continue
-            else:
-                # TODO: log NEW skipped tag
-                continue
-
         idx = parent.measures.__len__()
         # assert number == idx + 1, f"{number=} {idx=} {parent.id=} {parent.measures[-1].children=}"
         inst = cls(
@@ -480,11 +481,30 @@ class Measure:
             len=len_,
             keySig=keySig,
             timeSig=timeSig,
-            children=children,
+            children=[],
         )
         inst.idx = idx
-        # print(idx, end=' ')
         parent.measures.append(inst)
+
+        for child in tag.children:
+            if not isinstance(child, bs4.element.Tag):
+                continue
+            if child.name == "Dynamic":
+                inst.children.append(Dynamic.from_tag(child))
+            elif child.name == "Tempo":
+                inst.children.append(Tempo.from_tag(child))
+            elif child.name == "Rest":
+                inst.children.append(Rest.from_tag(child, inst))
+            elif child.name == "Chord":
+                inst.children.append(Chord.from_tag(child))
+            elif child.name == "Clef":
+                inst.children.append(Clef.from_tag(child))
+            elif child.name in ["Beam", "LayoutBreak", "BarLine"]:
+                # TODO: log skipped tag
+                continue
+            else:
+                # TODO: log NEW skipped tag
+                continue
 
     @property
     def previous(self) -> Optional["Measure"]:
@@ -551,6 +571,7 @@ class Dynamic:
     style: int  # known values: 12  # font size?
     subtype: Optional[str]  # known values: "pp", "p", "sf"
     tick: Optional[int]
+    # TODO: remove text in <style>
     text: Optional[str]  # e.g. "cresc."
 
     @classmethod
@@ -744,6 +765,8 @@ class Harmony:  # TODO: Find sample in v1
 
 @define
 class Rest:
+    parent: "Measure"
+
     visible: Optional[bool]
     tick: Optional[int]
     durationType: str  # known values: "measure", "whole", "half", "quarter", "eight", "16th", "32nd", "64th", "128th"
@@ -751,7 +774,7 @@ class Rest:
 
     # TODO: durationType "measure"
     @classmethod
-    def from_tag(cls, tag: bs4.element.Tag) -> "Rest":
+    def from_tag(cls, tag: bs4.element.Tag, parent: "Measure") -> "Rest":
         assert tag.name == "Rest"
         visible_tag = tag.find("visible", recursive=False)
         visible = None if visible_tag is None else bool(int(visible_tag.text))
@@ -760,14 +783,18 @@ class Rest:
         dots_tag = tag.find("dots", recursive=False)
         dots = 0 if dots_tag is None else int(dots_tag.text)
         durationType = tag.find("durationType", recursive=False).text
-        return cls(visible=visible, tick=tick, durationType=durationType, dots=dots)
+        return cls(parent=parent, visible=visible, tick=tick, durationType=durationType, dots=dots)
 
     @property
     def pulsation(self) -> float:
+        if self.durationType == "measure":
+            return tick_length_to_pulsation(self.parent.tick_length)
         return get_pulsation(self.durationType, self.dots)
 
     @property
     def tick_length(self) -> int:
+        if self.durationType == "measure":
+            return self.parent.tick_length
         return get_tick_length(self.durationType, self.dots)
 
 
