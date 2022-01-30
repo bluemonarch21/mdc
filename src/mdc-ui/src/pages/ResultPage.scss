@@ -1,0 +1,109 @@
+.resultPage {
+    background-color: white;
+    height: 100vh;
+    font-family: 'Montserrat', sans-serif;
+    color: #58171d;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    &__robotImg {
+        position: absolute;
+        top: 35%;
+        left: calc(50% - 100px);
+        height: 200px;
+    }
+    &__pianoImg {
+        position: absolute;
+        top: 35%;
+        left: calc(25% - 100px);
+        height: 200px;
+    }
+    &__sheetImg {
+        position: absolute;
+        top: 35%;
+        left: calc(75% - 100px);
+        height: 200px;
+    }
+    &__header {
+        justify-content: center;
+        align-items: center;
+        display: flex;
+        position: absolute;
+        top: 10%;
+        left: calc(50% - 130px);
+    }
+    &__message {
+        text-align: center;
+        justify-content: center;
+        display: flex;
+        width: 500px;
+        position: absolute;
+        top: 5%;
+        left: calc(50% - 250px);
+    }
+    &__henle {
+        text-align: center;
+        justify-content: center;
+        display: flex;
+        width: 500px;
+        position: absolute;
+        top: 18%;
+        left: calc(50% - 250px);
+    }
+    &__analysis {
+        text-align: center;
+        justify-content: center;
+        display: flex;
+        width: 500px;
+        position: absolute;
+        top: 24%;
+        left: calc(50% - 250px);
+    }
+    &__shareButton {
+        background-color: #ff3e3eff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-color: transparent;
+        height: 60px;
+        width: 180px;
+        color: white;
+        cursor: pointer;
+        position: absolute;
+        bottom: 20%;
+        left: calc(50% - 85px);
+        font-size: 14px;
+        &Text {
+            position: absolute;
+            left: 28%
+        }
+        &:hover {
+            background-color: white;
+            border: #ff3e3eff solid 2px;
+            color: #ff3e3eff;
+        }
+    }
+    &__shareIcon {
+        margin-left: 1rem;
+        position: absolute;
+        right: 28%;
+        margin-left: 1rem;
+    }
+    &__returnButton {
+        color: #58171d;
+        font-size: 14px;
+        text-decoration: none;
+        position: absolute;
+        bottom: 15%;
+        left: calc(50% - 80px);
+        &:hover {
+            color: #ff3e3eff; 
+        }
+    }
+    &__source {
+        bottom: 5%;
+        left: calc(50% - 200px);
+        position: absolute;
+    }
+}
