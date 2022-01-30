@@ -1,0 +1,28 @@
+.loadingPage {
+    background: linear-gradient(180deg, rgba(255,183,42,1) 29%, rgba(251,208,57,1) 58%);
+    height: 100vh;
+    font-family: 'Montserrat', sans-serif;
+    color: #58171d;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    &__pianoImg {
+        position: absolute;
+        top: 20%;
+        left: calc(50% - 125px);
+        height: 250px;
+    }
+    &__antMotion {
+        color: #58171d;
+        position: absolute;
+        top: 55%;
+        left: calc(50% - 63px);
+        font-size: 14px;
+    }
+    &__source {
+        bottom: 5%;
+        left: calc(50% - 200px);
+        position: absolute;
+    }
+}
