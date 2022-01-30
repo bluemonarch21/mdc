@@ -40,6 +40,9 @@ def upload_file(request):
 
 def handle_uploaded_file(f):
     date = datetime.datetime.now()
-    with open(BASE_DIR / f"./userupload/{hash(date)}", "wb+") as destination:
+    path = BASE_DIR / "userupload"
+    if not path.exists():
+        path.mkdir()
+    with open(BASE_DIR / f"userupload/{hash(date)}", "wb+") as destination:
         for chunk in f.chunks():
             destination.write(chunk)
