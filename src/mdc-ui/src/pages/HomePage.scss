@@ -28,29 +28,32 @@
         bottom: 20%;
         left: calc(50% - 90px);
         position: absolute;
-    }
-    &__uploadButton {
-        background-color: #ff3e3eff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-color: transparent;
-        height: 60px;
-        width: 180px;
-        color: white;
-        cursor: pointer;
-    }
-    &__uploadButton:hover {
-        background-color: white;
-        border-color: #ff3e3eff;
-        border-style: solid;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-color: transparent;
-        height: 60px;
-        width: 180px;
-        color: #ff3e3eff;
+        &Button {
+            background-color: #ff3e3eff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: #ff3e3eff solid 1px;
+            height: 60px;
+            width: 180px;
+            color: white;
+            cursor: pointer;
+            &Text {
+                position: absolute;
+                left: 15%;
+            }
+            &:hover {
+                background-color: white;
+                border-color: #ff3e3eff solid 2px;
+                color: #ff3e3eff;
+            } 
+        }
+        &Icon {
+            margin-left: 1rem;
+            position: absolute;
+            right: 15%;
+            margin-left: 1rem;
+        }
     }
     &__source {
         bottom: 5%;

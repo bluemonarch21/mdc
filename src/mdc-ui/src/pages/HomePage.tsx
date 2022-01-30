@@ -1,11 +1,11 @@
 import React from 'react';
 
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Upload, message, Button } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
 import { UploadProps } from 'antd/lib/upload/interface';
 
 import mdc_robot from '../assets/mdc_robot.png';
-import { UploadIcon } from '../components/';
 
 import './HomePage.scss';
 
@@ -26,9 +26,9 @@ function getCookie(name: string): string | null {
 }
 
 const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const uploadProps: UploadProps = {
     name: 'file',
-    // add API to store the uploaded file
     action: 'upload',
     headers: {
       'X-CSRFToken': getCookie('csrftoken') as string,
@@ -37,8 +37,12 @@ const HomePage: React.FC = () => {
       if (info.file.status !== 'uploading') {
         console.log(info.file, info.fileList);
       }
+      if (info.file.status === 'uploading') {
+        navigate('./loading');
+      }
       if (info.file.status === 'done') {
         message.success(`${info.file.name} file uploaded successfully`);
+        navigate('./result');
       } else if (info.file.status === 'error') {
         message.error(`${info.file.name} file upload failed.`);
       }
@@ -55,8 +59,11 @@ const HomePage: React.FC = () => {
         </p>
         <p className='homePage__message'>Let’s see what you’ve got!</p>
         <Upload {...uploadProps} className='homePage__upload'>
-          <Button icon={<UploadIcon />} className='homePage__uploadButton'>
-            UPLOAD A FILE
+          <Button
+            icon={<UploadOutlined className='homePage__uploadIcon' style={{ fontSize: '150%' }} />}
+            className='homePage__uploadButton'
+          >
+            <span className='homePage__uploadButtonText'>UPLOAD A FILE</span>
           </Button>
         </Upload>
         <p className='homePage__source'>a Kasetsart University B.Eng. Project・GitHub・Privacy</p>
