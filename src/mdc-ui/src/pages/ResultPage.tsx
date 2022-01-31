@@ -9,12 +9,26 @@ import mdc_sheet from '../assets/mdc_sheet.png';
 
 import './ResultPage.scss';
 
-const ResultPage: React.FC = () => {
+interface ResultProps {
+  level: number;
+}
+
+const ResultPage: React.FC<ResultProps> = ({ level }: ResultProps) => {
+  let text: string;
+  if (level >= 7) {
+    text = 'Difficult';
+  } else if (level >= 4) {
+    text = 'Medium';
+  } else if (level >= 1) {
+    text = 'Easy';
+  } else {
+    text = '';
+  }
   return (
     <div className='resultPage'>
       <div>
         <p className='resultPage__message'>Your song is</p>
-        <h1 className='resultPage__header'>Level 7 (Difficult)</h1>
+        <h1 className='resultPage__header'>Level { level } ({ text })</h1>
         <h3 className='resultPage__henle'>on the Henle scale</h3>
         <p className='resultPage__analysis'>according to my analysis.</p>
         <img src={mdc_piano} alt='MDC Piano' className='resultPage__pianoImg' />

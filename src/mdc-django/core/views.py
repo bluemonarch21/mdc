@@ -1,5 +1,6 @@
 import datetime
 import json
+import time
 
 from django.core.files.uploadedfile import UploadedFile
 from django.http import HttpResponse, HttpResponseRedirect
@@ -29,17 +30,17 @@ def upload_file(request):
     if request.method == "POST":
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
-            handle_uploaded_file(request.FILES["file"])
-            print("uploaded")
-            return HttpResponseRedirect("/success/url/")
+            grade = handle_uploaded_file(request.FILES["file"])
+            time.sleep(3)
+            return HttpResponse(str(grade), status=200)
         else:
             print("form is invalid")
     else:
         form = UploadFileForm()
-    return HttpResponseRedirect("/unsuccess/url/")
+    return HttpResponse("bad input", status=400)
 
 
-def handle_uploaded_file(f: UploadedFile):
+def handle_uploaded_file(f: UploadedFile) -> int:
     date = datetime.datetime.now()
     path = BASE_DIR / "userupload"
     if not path.exists():
@@ -47,3 +48,4 @@ def handle_uploaded_file(f: UploadedFile):
     with open(BASE_DIR / f"userupload/{hash(date) % 10 ** 8}-{f.name}", "wb+") as destination:
         for chunk in f.chunks():
             destination.write(chunk)
+    return hash(f.name) % 9 + 1
