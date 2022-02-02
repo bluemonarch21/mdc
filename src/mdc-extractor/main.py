@@ -8,31 +8,29 @@ from musescore.next import newMuseScore
 
 if __name__ == "__main__":
     rows = []
-    zip_filepaths = list(
-        sorted((REPO / "assets/musescore").glob("*.zip"), key=lambda a: int(a.stem))
-    )
+    zip_filepaths = list(sorted((REPO / "assets/musescore").glob("*.zip"), key=lambda a: int(a.stem)))
     for zfp in zip_filepaths:
         zfile = ZipFile(zfp)
         mscx_files = list(filter(lambda n: n.endswith(".mscx"), zfile.namelist()))
         if not mscx_files:
             print("errorrrrrr")
-        openfile = zfile.open(mscx_files[0], "r")
-
         filename = mscx_files[0]
-        print(zfp.stem, filename, "parsing")
-        soup = BeautifulSoup(openfile, "xml")
-        musescore = newMuseScore(soup)
-        if musescore is not None:
-            if musescore.get_piano_staffs():
-                rh_avg_ps, lh_avg_ps = [staff.get_playing_speed() for staff in musescore.get_piano_staffs()]
-                f = musescore.get_features()
-                print(f"RHS.PS.avg={rh_avg_ps}",
-                      f"LHS.PS.avg={lh_avg_ps}",
-                      f"PE={f.PE}",
-                      f"ANR={f.ANR}",
-                      )
-
-        continue
+        openfile = zfile.open(filename, "r")
+        try:
+            soup = BeautifulSoup(openfile, "xml")
+            musescore = newMuseScore(soup)
+            if musescore is not None:
+                if musescore.get_piano_staffs():  # if piano
+                    f = musescore.get_features()
+                    print(zfp.stem, filename, f)
+                else:
+                    print(".")
+            else:
+                print(soup.find("museScore").get("version"))
+            continue
+        except Exception:
+            print(zfp.stem, filename, "error while parsing")
+            raise
 
         version = soup.find("museScore").get("version")
 

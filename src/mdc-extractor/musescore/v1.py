@@ -1,12 +1,12 @@
 from itertools import cycle
-from typing import ClassVar, Optional, Union, Generator, Iterator, Tuple
+from typing import ClassVar, Iterator, Optional, Union
 
 import bs4.element
 from attr import define, field, frozen
 
 from arrutils import bisect
 from features import Features, get_entropy
-from musescore.utils import get_bpm, get_pulsation, get_duration_type, get_tick_length, tick_length_to_pulsation
+from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 
 
 @define
@@ -43,9 +43,7 @@ class MuseScore:
             list(
                 map(
                     sig.from_tag,
-                    tag.find("siglist", recursive=False).find_all(
-                        "sig", recursive=False
-                    ),
+                    tag.find("siglist", recursive=False).find_all("sig", recursive=False),
                 )
             )
         )
@@ -53,9 +51,7 @@ class MuseScore:
         tempolist = list(
             map(
                 tempo.from_tag,
-                tag.find("tempolist", recursive=False).find_all(
-                    "tempo", recursive=False
-                ),
+                tag.find("tempolist", recursive=False).find_all("tempo", recursive=False),
             )
         )
         parts = list(map(Part.from_tag, tag.find_all("Part", recursive=False)))
@@ -68,9 +64,7 @@ class MuseScore:
             parts=parts,
             staffs=[],
         )
-        staffs = list(
-            map(Staff.from_tag, tag.find_all("Staff", recursive=False), cycle([inst]))
-        )
+        staffs = list(map(Staff.from_tag, tag.find_all("Staff", recursive=False), cycle([inst])))
         inst.staffs = staffs
         inst.count_tempos()
         return inst
@@ -79,11 +73,23 @@ class MuseScore:
         num_accidental_notes = 0
         midi_num_occurrence = {}
         notes: list[Note] = []
+        avg_pitches: list[float] = []
+        ps_lst: list[float] = []
         for staff in self.get_piano_staffs():
+            staff_notes: list[Note] = []
             for measure in staff.measures:
                 for child in measure.children:
                     if isinstance(child, Chord):
-                        notes.extend(child.notes)
+                        staff_notes.extend(child.notes)
+            notes.extend(staff_notes)
+            avg = sum(n.pitch for n in staff_notes) / len(staff_notes)
+            avg_pitches.append(avg)
+            avg_ps = staff.get_playing_speed()
+            ps_lst.append(avg_ps)
+        rh_avg_pitch, lh_avg_pitch = avg_pitches
+        HS = abs(rh_avg_pitch - lh_avg_pitch)
+        rh_avg_ps, lh_avg_ps = ps_lst
+        PS = [lh_avg_ps, rh_avg_ps]
         for note in notes:
             # count midi numbers
             if note.pitch in midi_num_occurrence:
@@ -95,7 +101,7 @@ class MuseScore:
                 num_accidental_notes += 1
         PE = get_entropy(midi_num_occurrence)
         ANR = num_accidental_notes / len(notes)
-        return Features(PE=PE, ANR=ANR, PS=0, DSR=0)
+        return Features(PS=PS, PE=PE, DSR=None, HDR=None, HS=HS, PPR=None, ANR=ANR)
 
     def get_piano_staffs(self) -> list["Staff"]:
         retval = []
@@ -135,9 +141,7 @@ class MuseScore:
                         if child.tick is not None:
                             stroke_ticks.append(child.tick)
                         else:
-                            previous_tick = (
-                                stroke_ticks[-1] if stroke_ticks else measure.tick
-                            )
+                            previous_tick = stroke_ticks[-1] if stroke_ticks else measure.tick
                             stroke_ticks.append(previous_tick + child.tick_length)
                         for t in tempos_with_no_tick:
                             if t.tick is None:
@@ -169,9 +173,7 @@ class SigList:
                 yield tick, self.siglist[i].actual_measure_tick_length
                 tick += self.siglist[i].actual_measure_tick_length
                 continue
-            if (i == len(self.siglist) - 1) or (
-                self.siglist[i].tick < tick < self.siglist[i + 1].tick
-            ):
+            if (i == len(self.siglist) - 1) or (self.siglist[i].tick < tick < self.siglist[i + 1].tick):
                 yield tick, self.siglist[i].nominal_measure_tick_length
                 tick += self.siglist[i].nominal_measure_tick_length
                 continue
@@ -241,18 +243,12 @@ class sig:
     @property
     def nominal_measure_tick_length(self) -> int:
         """Nominal tick length of a measure"""
-        return (
-            get_tick_length(get_duration_type(self.nominal_denominator))
-            * self.nominal_nominator
-        )
+        return get_tick_length(get_duration_type(self.nominal_denominator)) * self.nominal_nominator
 
     @property
     def actual_measure_tick_length(self) -> int:
         """Actual tick length of the overwritten measure"""
-        return (
-            get_tick_length(get_duration_type(self.actual_denominator))
-            * self.actual_nominator
-        )
+        return get_tick_length(get_duration_type(self.actual_denominator)) * self.actual_nominator
 
 
 @define
@@ -285,11 +281,8 @@ class Part:
 
     @property
     def is_piano(self) -> bool:
-        return (
-            self.name is not None and self.name.lower() in self.known_piano_values
-        ) or (
-            self.instrument.trackName is not None
-            and self.instrument.trackName.lower() in self.known_piano_values
+        return (self.name is not None and self.name.lower() in self.known_piano_values) or (
+            self.instrument.trackName is not None and self.instrument.trackName.lower() in self.known_piano_values
         )
 
     @classmethod
@@ -297,11 +290,7 @@ class Part:
         assert tag.name == "Part"
         staffs = list(map(Part.Staff.from_tag, tag.find_all("Staff", recursive=False)))
         name_tag = tag.find("name", recursive=False)
-        name = (
-            None
-            if name_tag is None
-            else name_tag.find("html-data", recursive=False).text
-        )
+        name = None if name_tag is None else name_tag.find("html-data", recursive=False).text
         instrument = Instrument.from_tag(tag.find("Instrument", recursive=False))
         return cls(staffs=staffs, name=name, instrument=instrument)
 
@@ -316,17 +305,13 @@ class Part:
             cleflist = list(
                 map(
                     clef.from_tag,
-                    tag.find("cleflist", recursive=False).find_all(
-                        "clef", recursive=False
-                    ),
+                    tag.find("cleflist", recursive=False).find_all("clef", recursive=False),
                 )
             )
             keylist = list(
                 map(
                     key.from_tag,
-                    tag.find("keylist", recursive=False).find_all(
-                        "key", recursive=False
-                    ),
+                    tag.find("keylist", recursive=False).find_all("key", recursive=False),
                 )
             )
             return cls(cleflist=cleflist, keylist=keylist)
@@ -407,9 +392,7 @@ class Staff:
                     if child.tick is not None:
                         stroke_ticks.append(child.tick)
                     else:
-                        previous_tick = (
-                            stroke_ticks[-1] if stroke_ticks else measure.tick
-                        )
+                        previous_tick = stroke_ticks[-1] if stroke_ticks else measure.tick
                         stroke_ticks.append(previous_tick + child.tick_length)
                     if isinstance(child, Chord):
                         tempo_idx = bisect(self.parent.tempo_ticks, stroke_ticks[-1])[1] - 1
@@ -432,7 +415,7 @@ class Staff:
                 ps = 0
             playing_speeds.append(ps)
             # calculate average PS
-            if i == len(self.parent.tempos) - 1: # last element
+            if i == len(self.parent.tempos) - 1:  # last element
                 # maybe do: handle no strokes?
                 del_x = stroke_ticks[-1] - tempo.tick
             else:
@@ -456,9 +439,7 @@ class Measure:
     # child elements
     keySig: "KeySig"
     timeSig: "TimeSig"
-    children: list[
-        Union["Rest", "Chord", "Tuplet", "Harmony", "Dynamic", "Tempo", "Clef"]
-    ]  # Order matters!!
+    children: list[Union["Rest", "Chord", "Tuplet", "Harmony", "Dynamic", "Tempo", "Clef"]]  # Order matters!!
 
     idx: int = field(init=False)
 
@@ -640,13 +621,9 @@ class KeySig:
         subtype = None if subtype_tag is None else int(subtype_tag.text)
         keySyms = list(map(KeySym.from_tag, tag.find_all("KeySym", recursive=False)))
         showCourtesySig_tag = tag.find("showCourtesySig", recursive=False)
-        showCourtesySig = (
-            None if showCourtesySig_tag is None else bool(int(showCourtesySig_tag.text))
-        )
+        showCourtesySig = None if showCourtesySig_tag is None else bool(int(showCourtesySig_tag.text))
         showNaturals_tag = tag.find("showNaturals", recursive=False)
-        showNaturals = (
-            None if showNaturals_tag is None else bool(int(showNaturals_tag.text))
-        )
+        showNaturals = None if showNaturals_tag is None else bool(int(showNaturals_tag.text))
         return cls(
             subtype=subtype,
             keySyms=keySyms,
@@ -783,7 +760,13 @@ class Rest:
         dots_tag = tag.find("dots", recursive=False)
         dots = 0 if dots_tag is None else int(dots_tag.text)
         durationType = tag.find("durationType", recursive=False).text
-        return cls(parent=parent, visible=visible, tick=tick, durationType=durationType, dots=dots)
+        return cls(
+            parent=parent,
+            visible=visible,
+            tick=tick,
+            durationType=durationType,
+            dots=dots,
+        )
 
     @property
     def pulsation(self) -> float:
@@ -833,11 +816,7 @@ class Chord:  # TODO
         notes = list(map(Note.from_tag, tag.find_all("Note", recursive=False)))
 
         Articulation_tag = tag.find("Articulation", recursive=False)
-        articulation = (
-            None
-            if Articulation_tag is None
-            else Articulation.from_tag(Articulation_tag)
-        )
+        articulation = None if Articulation_tag is None else Articulation.from_tag(Articulation_tag)
         Arpeggio_tag = tag.find("Arpeggio", recursive=False)
         arpeggio = None if Arpeggio_tag is None else Arpeggio.from_tag(Arpeggio_tag)
 
@@ -932,9 +911,7 @@ class Note:
         tie = tag.find("Tie", recursive=False) is not None
 
         Accidental_tag = tag.find("Accidental", recursive=False)
-        accidental = (
-            None if Accidental_tag is None else Accidental.from_tag(Accidental_tag)
-        )
+        accidental = None if Accidental_tag is None else Accidental.from_tag(Accidental_tag)
         Symbol_tag = tag.find("Symbol", recursive=False)
         symbol = None if Symbol_tag is None else Symbol.from_tag(Symbol_tag)
         veloType_tag = tag.find("veloType", recursive=False)

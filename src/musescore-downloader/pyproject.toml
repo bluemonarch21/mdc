@@ -1,0 +1,6 @@
+[tool.black]
+line-length = 120
+
+[tool.isort]
+line_length = 120
+skip_glob = [".env/*", ".venv/*", "env/*", "venv/*", "ENV/*", "env.bak/*", "venv.bak/*"]

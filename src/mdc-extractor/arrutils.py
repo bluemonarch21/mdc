@@ -1,6 +1,6 @@
 from typing import TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def bisect(arr: list[T], e: T) -> tuple[int, int]:

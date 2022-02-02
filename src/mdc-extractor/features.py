@@ -11,7 +11,10 @@ def get_entropy(dct: dict[any, int]) -> float:
 
 @define
 class Features:
-    PS: float  # playing speed
+    PS: tuple[float, float]  # playing speed
     PE: float  # pitch entropy
     DSR: float  # distinct stroke rate
+    HDR: float  # hand displacement rate
+    HS: float  # hand stretch
+    PPR: float  # polyphony rate
     ANR: float  # altered note rate
