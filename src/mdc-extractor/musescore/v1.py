@@ -3,7 +3,7 @@ from typing import ClassVar, Iterator, Optional, Union
 
 import bs4.element
 import numpy as np
-from attr import define, field, frozen
+from attr import define, evolve, field, frozen
 
 from arrutils import bisect
 from features import Features, displacement_cost, get_entropy
@@ -381,15 +381,17 @@ class Staff:
     @property
     def chords(self) -> Iterator["Chord"]:
         for measure in self.measures:
-            for child in measure.children:
-                if isinstance(child, Chord):
-                    yield child
+            for stroke in measure.strokes:
+                if isinstance(stroke, Chord):
+                    yield stroke
 
     @property
     def notes(self) -> Iterator["Note"]:
-        for chord in self.chords:
-            for note in chord.notes:
-                yield note
+        for measure in self.measures:
+            for child in measure.children:
+                if isinstance(child, Chord):
+                    for note in child.notes:
+                        yield note
 
     def get_average_pitch(self) -> float:
         return np.fromiter((n.pitch for n in self.notes), int).mean()
@@ -556,11 +558,16 @@ class Measure:
                             if child.tick_length < old_stroke.tick_length:
                                 # presumably something would come right after
                                 new_pitches = [n.pitch for n in child.notes]
-                                child.notes.extend([n for n in old_stroke.notes if n.pitch not in new_pitches])
-                                strokes[idx] = child
+                                notes = list(
+                                    chain(child.notes, (n for n in old_stroke.notes if n.pitch not in new_pitches))
+                                )
+                                strokes[idx] = evolve(child, notes=notes)
                             else:
                                 old_pitches = [n.pitch for n in old_stroke.notes]
-                                old_stroke.notes.extend([n for n in child.notes if n.pitch not in old_pitches])
+                                notes = list(
+                                    chain(old_stroke.notes, (n for n in child.notes if n.pitch not in old_pitches))
+                                )
+                                strokes[idx] = evolve(old_stroke, notes=notes)
                     else:
                         raise AssertionError("Stroke should be Rest or Chord")
                 else:  # new stroke
@@ -571,16 +578,19 @@ class Measure:
 
     @property
     def strokes(self) -> list[Union["Chord", "Rest"]]:
+        """Returns each distinct stroke, merging all voices."""
         if self._strokes is None:
             self._compute_strokes()
         return list(self._strokes)
 
     def get_stroke_tick(self, stroke: Union["Chord", "Rest"]) -> int:
+        """Returns the tick of the given stroke."""
         if self._stroke_ticks is None:
             self._compute_strokes()
         return self._stroke_ticks[self.strokes.index(stroke)]
 
     def get_last_tick(self) -> int:
+        """Returns the last tick in this measure."""
         if self._stroke_ticks is None:
             self._compute_strokes()
         return self._stroke_ticks[-1]
