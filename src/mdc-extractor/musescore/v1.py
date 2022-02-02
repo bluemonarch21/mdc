@@ -531,17 +531,41 @@ class Measure:
         # return self.previous.tick_length
 
     def _compute_strokes(self) -> None:
-        # TODO: handle merging of chords (same tick), voices
         strokes: list[Union[Chord, Rest]] = []
         stroke_ticks: list[int] = []
         for child in self.children:
             if isinstance(child, (Chord, Rest)):
-                strokes.append(child)
                 if child.tick is not None:
-                    stroke_ticks.append(child.tick)
+                    stroke_tick = child.tick
                 else:
                     previous_tick = stroke_ticks[-1] if stroke_ticks else self.tick
-                    stroke_ticks.append(previous_tick + child.tick_length)
+                    stroke_tick = previous_tick + child.tick_length
+                # TODO: Handle differently in v2, v3
+                if stroke_tick in stroke_ticks:  # old stroke, new voice
+                    idx = stroke_ticks.index(stroke_tick)
+                    old_stroke = strokes[idx]
+                    if isinstance(old_stroke, Rest):
+                        # actually should depend on what the next stroke is
+                        if child.tick_length < old_stroke.tick_length:
+                            # presumably something would come right after
+                            strokes[idx] = child
+                    elif isinstance(old_stroke, Chord):
+                        if isinstance(child, Chord):
+                            # merge chords, ignore Rest
+                            # actually should depend on what the next stroke is
+                            if child.tick_length < old_stroke.tick_length:
+                                # presumably something would come right after
+                                new_pitches = [n.pitch for n in child.notes]
+                                child.notes.extend([n for n in old_stroke.notes if n.pitch not in new_pitches])
+                                strokes[idx] = child
+                            else:
+                                old_pitches = [n.pitch for n in old_stroke.notes]
+                                old_stroke.notes.extend([n for n in child.notes if n.pitch not in old_pitches])
+                    else:
+                        raise AssertionError("Stroke should be Rest or Chord")
+                else:  # new stroke
+                    strokes.append(child)
+                    stroke_ticks.append(stroke_tick)
         self._strokes = strokes
         self._stroke_ticks = stroke_ticks
 
