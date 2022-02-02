@@ -76,10 +76,12 @@ class MuseScore:
         avg_pitches = []
         PS = []
         HDR = []
+        PPR = []
         for staff in staffs:
             avg_pitches.append(staff.get_average_pitch())
             PS.insert(0, staff.get_playing_speed())
             HDR.insert(0, staff.get_hand_displacement_rate())
+            PPR.insert(0, staff.get_polyphony_rate())
         rh_avg_pitch, lh_avg_pitch = avg_pitches
         HS = abs(rh_avg_pitch - lh_avg_pitch)
 
@@ -98,7 +100,7 @@ class MuseScore:
             count += 1
         PE = get_entropy(midi_num_occurrence)
         ANR = num_accidental_notes / count
-        return Features(PS=PS, PE=PE, DSR=None, HDR=HDR, HS=HS, PPR=None, ANR=ANR)
+        return Features(PS=PS, PE=PE, DSR=None, HDR=HDR, HS=HS, PPR=PPR, ANR=ANR)
 
     def get_piano_staffs(self) -> list["Staff"]:
         retval = []
@@ -399,6 +401,16 @@ class Staff:
             arr[i] = displacement_cost(chords[i], chords[i + 1])
         return arr.mean() / 2
 
+    def get_polyphony_rate(self) -> float:
+        num_chord_strokes = 0
+        num_strokes = 0
+        for measure in self.measures:
+            for stroke in measure.strokes:
+                if isinstance(stroke, Chord):
+                    num_chord_strokes += int(stroke.is_chord)
+                    num_strokes += 1
+        return num_chord_strokes / num_strokes
+
     def get_playing_speed(self) -> float:
         if not self.parent.tempos:
             return None
@@ -519,6 +531,7 @@ class Measure:
         # return self.previous.tick_length
 
     def _compute_strokes(self) -> None:
+        # TODO: handle merging of chords (same tick), voices
         strokes: list[Union[Chord, Rest]] = []
         stroke_ticks: list[int] = []
         for child in self.children:
@@ -880,6 +893,10 @@ class Chord:  # TODO
     @property
     def tick_length(self) -> int:
         return get_tick_length(self.durationType, self.dots)
+
+    @property
+    def is_chord(self) -> bool:
+        return len(self.notes) > 1
 
 
 @define
