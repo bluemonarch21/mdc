@@ -1,4 +1,4 @@
-from itertools import cycle, chain
+from itertools import chain, cycle
 from typing import ClassVar, Iterator, Optional, Union
 
 import bs4.element
@@ -6,7 +6,7 @@ import numpy as np
 from attr import define, field, frozen
 
 from arrutils import bisect
-from features import Features, get_entropy
+from features import Features, displacement_cost, get_entropy
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 
 
@@ -74,14 +74,14 @@ class MuseScore:
         staffs = self.get_piano_staffs()
 
         avg_pitches = []
-        playing_speeds = []
+        PS = []
+        HDR = []
         for staff in staffs:
             avg_pitches.append(staff.get_average_pitch())
-            playing_speeds.append(staff.get_playing_speed())
+            PS.insert(0, staff.get_playing_speed())
+            HDR.insert(0, staff.get_hand_displacement_rate())
         rh_avg_pitch, lh_avg_pitch = avg_pitches
-        rh_avg_ps, lh_avg_ps = playing_speeds
         HS = abs(rh_avg_pitch - lh_avg_pitch)
-        PS = [lh_avg_ps, rh_avg_ps]
 
         num_accidental_notes = 0
         midi_num_occurrence = {}
@@ -98,7 +98,7 @@ class MuseScore:
             count += 1
         PE = get_entropy(midi_num_occurrence)
         ANR = num_accidental_notes / count
-        return Features(PS=PS, PE=PE, DSR=None, HDR=None, HS=HS, PPR=None, ANR=ANR)
+        return Features(PS=PS, PE=PE, DSR=None, HDR=HDR, HS=HS, PPR=None, ANR=ANR)
 
     def get_piano_staffs(self) -> list["Staff"]:
         retval = []
@@ -377,15 +377,27 @@ class Staff:
         return inst
 
     @property
-    def notes(self) -> Iterator["Note"]:
+    def chords(self) -> Iterator["Chord"]:
         for measure in self.measures:
             for child in measure.children:
                 if isinstance(child, Chord):
-                    for note in child.notes:
-                        yield note
+                    yield child
+
+    @property
+    def notes(self) -> Iterator["Note"]:
+        for chord in self.chords:
+            for note in chord.notes:
+                yield note
 
     def get_average_pitch(self) -> float:
         return np.fromiter((n.pitch for n in self.notes), int).mean()
+
+    def get_hand_displacement_rate(self) -> float:
+        chords = list(self.chords)
+        arr = np.empty(len(chords) - 1, int)
+        for i in range(len(chords) - 1):
+            arr[i] = displacement_cost(chords[i], chords[i + 1])
+        return arr.mean() / 2
 
     def get_playing_speed(self) -> float:
         if not self.parent.tempos:

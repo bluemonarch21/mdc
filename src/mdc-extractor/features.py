@@ -2,6 +2,8 @@ import math
 
 from attr import define
 
+from mathutils import round_to_significant
+
 
 def get_entropy(dct: dict[any, int]) -> float:
     """Given a dict of [unique items, num occurrence], returns the entropy."""
@@ -9,12 +11,33 @@ def get_entropy(dct: dict[any, int]) -> float:
     return -sum(v / total * math.log(v / total, 2) for v in dct.values())
 
 
+def displacement_cost(c1, c2) -> int:
+    a = [n.pitch for n in c1.notes]
+    b = [n.pitch for n in c2.notes]
+    d1 = max(a) - min(b)
+    d2 = max(b) - min(a)
+    d = max(d1, d2)
+    if d >= 12:
+        return 2
+    if d >= 7:
+        return 1
+    return 0
+
+
 @define
 class Features:
     PS: tuple[float, float]  # playing speed
     PE: float  # pitch entropy
     DSR: float  # distinct stroke rate
-    HDR: float  # hand displacement rate
+    HDR: tuple[float, float]  # hand displacement rate
     HS: float  # hand stretch
-    PPR: float  # polyphony rate
+    PPR: tuple[float, float]  # polyphony rate
     ANR: float  # altered note rate
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            if isinstance(v, float):
+                kwargs[k] = round_to_significant(v, 5)
+            elif isinstance(v, list):
+                kwargs[k] = [round_to_significant(e, 5) for e in v]
+        self.__attrs_init__(**kwargs)
