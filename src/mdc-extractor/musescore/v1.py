@@ -1,7 +1,8 @@
-from itertools import cycle
+from itertools import cycle, chain
 from typing import ClassVar, Iterator, Optional, Union
 
 import bs4.element
+import numpy as np
 from attr import define, field, frozen
 
 from arrutils import bisect
@@ -70,27 +71,22 @@ class MuseScore:
         return inst
 
     def get_features(self) -> "Features":
+        staffs = self.get_piano_staffs()
+
+        avg_pitches = []
+        playing_speeds = []
+        for staff in staffs:
+            avg_pitches.append(staff.get_average_pitch())
+            playing_speeds.append(staff.get_playing_speed())
+        rh_avg_pitch, lh_avg_pitch = avg_pitches
+        rh_avg_ps, lh_avg_ps = playing_speeds
+        HS = abs(rh_avg_pitch - lh_avg_pitch)
+        PS = [lh_avg_ps, rh_avg_ps]
+
         num_accidental_notes = 0
         midi_num_occurrence = {}
-        notes: list[Note] = []
-        avg_pitches: list[float] = []
-        ps_lst: list[float] = []
-        for staff in self.get_piano_staffs():
-            staff_notes: list[Note] = []
-            for measure in staff.measures:
-                for child in measure.children:
-                    if isinstance(child, Chord):
-                        staff_notes.extend(child.notes)
-            notes.extend(staff_notes)
-            avg = sum(n.pitch for n in staff_notes) / len(staff_notes)
-            avg_pitches.append(avg)
-            avg_ps = staff.get_playing_speed()
-            ps_lst.append(avg_ps)
-        rh_avg_pitch, lh_avg_pitch = avg_pitches
-        HS = abs(rh_avg_pitch - lh_avg_pitch)
-        rh_avg_ps, lh_avg_ps = ps_lst
-        PS = [lh_avg_ps, rh_avg_ps]
-        for note in notes:
+        count = 0
+        for note in chain.from_iterable([staff.notes for staff in staffs]):
             # count midi numbers
             if note.pitch in midi_num_occurrence:
                 midi_num_occurrence[note.pitch] += 1
@@ -99,8 +95,9 @@ class MuseScore:
             # count altered notes
             if note.accidental is not None:
                 num_accidental_notes += 1
+            count += 1
         PE = get_entropy(midi_num_occurrence)
-        ANR = num_accidental_notes / len(notes)
+        ANR = num_accidental_notes / count
         return Features(PS=PS, PE=PE, DSR=None, HDR=None, HS=HS, PPR=None, ANR=ANR)
 
     def get_piano_staffs(self) -> list["Staff"]:
@@ -379,10 +376,21 @@ class Staff:
         )
         return inst
 
+    @property
+    def notes(self) -> Iterator["Note"]:
+        for measure in self.measures:
+            for child in measure.children:
+                if isinstance(child, Chord):
+                    for note in child.notes:
+                        yield note
+
+    def get_average_pitch(self) -> float:
+        return np.fromiter((n.pitch for n in self.notes), int).mean()
+
     def get_playing_speed(self) -> float:
-        tempo_chords: list[list[Chord]] = [[] for _ in range(len(self.parent.tempos))]
-        if not tempo_chords:
+        if not self.parent.tempos:
             return None
+        tempo_chords: list[list[Chord]] = [[] for _ in range(len(self.parent.tempos))]
         for measure in self.measures:
             strokes: list[Union[Chord, Rest]] = []
             stroke_ticks: list[int] = []
