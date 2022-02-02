@@ -403,25 +403,13 @@ class Staff:
         if not self.parent.tempos:
             return None
         tempo_chords: list[list[Chord]] = [[] for _ in range(len(self.parent.tempos))]
+        last_tick: int
         for measure in self.measures:
-            strokes: list[Union[Chord, Rest]] = []
-            stroke_ticks: list[int] = []
-            for child in measure.children:
-                if isinstance(child, (Chord, Rest)):
-                    strokes.append(child)
-                    if child.tick is not None:
-                        stroke_ticks.append(child.tick)
-                    else:
-                        previous_tick = stroke_ticks[-1] if stroke_ticks else measure.tick
-                        stroke_ticks.append(previous_tick + child.tick_length)
-                    if isinstance(child, Chord):
-                        tempo_idx = bisect(self.parent.tempo_ticks, stroke_ticks[-1])[1] - 1
-                        try:
-                            tempo_chords[tempo_idx].append(child)
-                        except IndexError:
-                            print(tempo_idx)
-                            print([(t.tick, t.tempo) for t in self.parent.tempos])
-                            raise
+            for stroke in measure.strokes:
+                if isinstance(stroke, Chord):
+                    tempo_idx = bisect(self.parent.tempo_ticks, measure.get_stroke_tick(stroke))[1] - 1
+                    tempo_chords[tempo_idx].append(stroke)
+            last_tick = measure.get_last_tick()
 
         total_area = 0
         playing_speeds = []
@@ -437,12 +425,12 @@ class Staff:
             # calculate average PS
             if i == len(self.parent.tempos) - 1:  # last element
                 # maybe do: handle no strokes?
-                del_x = stroke_ticks[-1] - tempo.tick
+                del_x = last_tick - tempo.tick
             else:
                 del_x = self.parent.tempos[i + 1].tick - tempo.tick
             y = ps
             total_area += del_x * y
-        avg_ps = total_area / stroke_ticks[-1]
+        avg_ps = total_area / last_tick
 
         # TODO: numpy calculate variance PS
         return avg_ps
@@ -462,6 +450,8 @@ class Measure:
     children: list[Union["Rest", "Chord", "Tuplet", "Harmony", "Dynamic", "Tempo", "Clef"]]  # Order matters!!
 
     idx: int = field(init=False)
+    _strokes: Optional[list[Union["Chord", "Rest"]]] = field(init=False, default=None)
+    _stroke_ticks: Optional[list[int]] = field(init=False, default=None)
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag, parent: "Staff") -> "Measure":
@@ -527,6 +517,36 @@ class Measure:
         #     if isinstance(child, TimeSig):
         #         return child.measure_tick_length
         # return self.previous.tick_length
+
+    def _compute_strokes(self) -> None:
+        strokes: list[Union[Chord, Rest]] = []
+        stroke_ticks: list[int] = []
+        for child in self.children:
+            if isinstance(child, (Chord, Rest)):
+                strokes.append(child)
+                if child.tick is not None:
+                    stroke_ticks.append(child.tick)
+                else:
+                    previous_tick = stroke_ticks[-1] if stroke_ticks else self.tick
+                    stroke_ticks.append(previous_tick + child.tick_length)
+        self._strokes = strokes
+        self._stroke_ticks = stroke_ticks
+
+    @property
+    def strokes(self) -> list[Union["Chord", "Rest"]]:
+        if self._strokes is None:
+            self._compute_strokes()
+        return list(self._strokes)
+
+    def get_stroke_tick(self, stroke: Union["Chord", "Rest"]) -> int:
+        if self._stroke_ticks is None:
+            self._compute_strokes()
+        return self._stroke_ticks[self.strokes.index(stroke)]
+
+    def get_last_tick(self) -> int:
+        if self._stroke_ticks is None:
+            self._compute_strokes()
+        return self._stroke_ticks[-1]
 
 
 @define
