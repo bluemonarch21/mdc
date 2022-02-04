@@ -100,7 +100,20 @@ class MuseScore:
             count += 1
         PE = get_entropy(midi_num_occurrence)
         ANR = num_accidental_notes / count
-        return Features(PS=PS, PE=PE, DSR=None, HDR=HDR, HS=HS, PPR=PPR, ANR=ANR)
+
+        DSR = self.get_distinct_stroke_rate()
+        return Features(PS=PS, PE=PE, DSR=DSR, HDR=HDR, HS=HS, PPR=PPR, ANR=ANR)
+
+    def get_distinct_stroke_rate(self) -> float:
+        staffs = self.get_piano_staffs()
+        right_and_left = 0
+        right_or_left = 0
+        for left_measure, right_measure in zip(staffs[1].measures, staffs[0].measures):
+            right = right_measure.stroke_ticks
+            left = left_measure.stroke_ticks
+            right_and_left += len(right.intersection(left))
+            right_or_left += len(right.union(left))
+        return 1 - right_and_left / right_or_left
 
     def get_piano_staffs(self) -> list["Staff"]:
         retval = []
@@ -585,6 +598,15 @@ class Measure:
         if self._strokes is None:
             self._compute_strokes()
         return list(self._strokes)
+
+    @property
+    def stroke_ticks(self) -> set[int]:
+        """Returns ticks for each distinct stroke, merging all voices."""
+        if self._stroke_ticks is None:
+            self._compute_strokes()
+        result = set(self._stroke_ticks)
+        assert len(result) == len(self._stroke_ticks)
+        return result
 
     def get_stroke_tick(self, stroke: Union["Chord", "Rest"]) -> int:
         """Returns the tick of the given stroke."""
