@@ -409,8 +409,11 @@ class Staff:
         for measure in self.measures:
             for stroke in measure.strokes:
                 if isinstance(stroke, Chord):
-                    num_chord_strokes += int(stroke.is_chord)
-                    num_strokes += 1
+                    if not all(n.tie for n in stroke.notes):
+                        # count as new stroke if at least one note is not tied
+                        # if all is tied, it just is the old stroke with longer tick length
+                        num_chord_strokes += int(stroke.is_chord)
+                        num_strokes += 1
         return num_chord_strokes / num_strokes
 
     def get_playing_speed(self) -> float:
