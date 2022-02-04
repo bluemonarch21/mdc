@@ -116,12 +116,12 @@ class MuseScore:
         return 1 - right_and_left / right_or_left
 
     def get_piano_staffs(self) -> list["Staff"]:
-        retval = []
+        output = []
         i = 0
         for part in self.parts:
             if part.is_piano:
                 if len(part.staffs) == 2:
-                    retval.extend((self.staffs[i], self.staffs[i + 1]))
+                    output.extend((self.staffs[i], self.staffs[i + 1]))
                 elif len(part.staffs) == 1:
                     # TODO: Log
                     # retval.append(self.staffs[i])
@@ -130,10 +130,10 @@ class MuseScore:
                     # TODO: Log
                     pass
             i += len(part.staffs)
-        if len(retval) != 0 and len(retval) != 2:
+        if len(output) != 0 and len(output) != 2:
             # TODO: Log
             pass
-        return retval
+        return output
 
     def count_tempos(self) -> None:
         tempos: list[Tempo] = []
