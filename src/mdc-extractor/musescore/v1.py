@@ -164,6 +164,18 @@ class MuseScore:
         self.tempos = tempos
         self.tempo_ticks = [t.tick for t in tempos]
 
+    @property
+    def meta_info(self) -> dict[str, str]:
+        dct = {}
+        for staff in self.staffs:
+            if staff.vbox is not None:
+                for text in staff.vbox.texts:
+                    if text.subtype not in dct:
+                        dct[text.subtype] = text.text
+                    else:
+                        dct[text.subtype] = [dct[text.subtype], text.text]
+        return dct
+
 
 @frozen
 class SigList:
@@ -302,7 +314,9 @@ class Part:
         assert tag.name == "Part"
         staffs = list(map(Part.Staff.from_tag, tag.find_all("Staff", recursive=False)))
         name_tag = tag.find("name", recursive=False)
-        name = None if name_tag is None else name_tag.find("html-data", recursive=False).text
+        name = (
+            None if name_tag is None else name_tag.find("html-data", recursive=False).find("body").get_text(strip=True)
+        )
         instrument = Instrument.from_tag(tag.find("Instrument", recursive=False))
         return cls(staffs=staffs, name=name, instrument=instrument)
 
@@ -375,13 +389,16 @@ class Staff:
     id: int  # starts at 1
 
     # child elements
+    vbox: Optional["VBox"]
     measures: list["Measure"]
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag, parent: "MuseScore") -> "Staff":
         assert tag.name == "Staff"
         id_ = int(tag.get("id"))
-        inst = cls(parent=parent, id=id_, measures=[])
+        vbox_tag = tag.find("VBox", recursive=False)
+        vbox = None if vbox_tag is None else VBox.from_tag(vbox_tag)
+        inst = cls(parent=parent, id=id_, vbox=vbox, measures=[])
         list(
             map(
                 Measure.from_tag,
@@ -464,6 +481,29 @@ class Staff:
 
         # TODO: numpy calculate variance PS
         return avg_ps
+
+
+@define
+class VBox:
+    texts: list["Text"]
+
+    @classmethod
+    def from_tag(cls, tag: bs4.element.Tag) -> "VBox":
+        assert tag.name == "VBox"
+        texts = list(map(cls.Text.from_tag, tag.find_all("Text", recursive=False)))
+        return cls(texts=texts)
+
+    @define
+    class Text:
+        subtype: str  # known values: "Title", "Subtitle", "Composer",
+        text: str
+
+        @classmethod
+        def from_tag(cls, tag: bs4.element.Tag) -> "VBox.Text":
+            assert tag.name == "Text"
+            subtype = tag.find("subtype", recursive=False).text
+            text = tag.find("html-data", recursive=False).find("body").get_text(strip=True)
+            return cls(subtype=subtype, text=text)
 
 
 @define
@@ -639,8 +679,7 @@ class Tempo:
         assert subtype == "Tempo"
         tick_tag = tag.find("tick", recursive=False)
         tick = None if tick_tag is None else int(tick_tag.text)
-        # TODO: clean html better
-        text = tag.find("html-data", recursive=False).text
+        text = tag.find("html-data", recursive=False).find("body").get_text(strip=True)
         return cls(tempo=tempo, style=style, subtype=subtype, tick=tick, text=text)
 
     @property
@@ -676,7 +715,7 @@ class Dynamic:
         tick_tag = tag.find("tick", recursive=False)
         tick = None if tick_tag is None else int(tick_tag.text)
         html_data_tag = tag.find("html-data", recursive=False)
-        text = None if html_data_tag is None else html_data_tag.text
+        text = None if html_data_tag is None else html_data_tag.find("body").get_text(strip=True)
         return cls(style=style, subtype=subtype, tick=tick, text=text)
 
 
@@ -838,7 +877,7 @@ class Number:
         style = int(tag.find("style", recursive=False).text)
         subtype = tag.find("subtype", recursive=False).text
         assert subtype == "Tuplet"
-        text = tag.find("html-data", recursive=False).text
+        text = tag.find("html-data", recursive=False).find("body").get_text(strip=True)
         return cls(style=style, subtype=subtype, text=text)
 
 

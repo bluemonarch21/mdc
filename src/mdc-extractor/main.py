@@ -22,7 +22,7 @@ if __name__ == "__main__":
             if musescore is not None:
                 if musescore.get_piano_staffs():  # if piano
                     f = musescore.get_features()
-                    print(zfp.stem, filename, f)
+                    print(zfp.stem, filename, f, musescore.meta_info)
                 else:
                     print(".")
             else:
