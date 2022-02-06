@@ -16,4 +16,6 @@ def round_to_significant(x: float, n: int) -> float:
         return None
     if x == 0:
         return 0
+    if math.isnan(x):
+        return x
     return round(x, -int(math.floor(math.log10(abs(x)))) + (n - 1))
