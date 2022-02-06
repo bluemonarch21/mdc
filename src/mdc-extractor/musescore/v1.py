@@ -7,8 +7,8 @@ from attr import define, evolve, field, frozen
 
 from arrutils import bisect
 from features import Features, displacement_cost, get_entropy
-from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 from musescore.proto import note_possible_tags
+from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 
 
 @define

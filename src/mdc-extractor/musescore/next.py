@@ -4,14 +4,16 @@ import bs4.element
 from bs4 import BeautifulSoup
 
 from attrs import define
-from musescore import v1
+from musescore import v1, v2
 
 
-def newMuseScore(soup: BeautifulSoup) -> Union[v1.MuseScore, None]:
+def newMuseScore(soup: BeautifulSoup) -> Union[v1.MuseScore, v2.MuseScore, None]:
     museScore_tag = soup.find("museScore")
     version = museScore_tag.get("version")
     if version in v1.MuseScore.known_versions:
         return v1.MuseScore.from_tag(museScore_tag)
+    elif version in v2.MuseScore.known_versions:
+        return v2.MuseScore.from_tag(museScore_tag)
     else:
         return None
 

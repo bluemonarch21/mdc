@@ -4,6 +4,7 @@ from zipfile import ZipFile
 from bs4 import BeautifulSoup
 
 from constants import REPO
+from musescore import v1, v2
 from musescore.next import newMuseScore
 
 if __name__ == "__main__":
@@ -20,13 +21,13 @@ if __name__ == "__main__":
             soup = BeautifulSoup(openfile, "xml")
             musescore = newMuseScore(soup)
             if musescore is not None:
-                if musescore.get_piano_staffs():  # if piano
-                    f = musescore.get_features()
+                f = musescore.get_features()
+                if f:
                     print(zfp.stem, filename, f, musescore.meta_info)
                 else:
                     print(".")
             else:
-                print(soup.find("museScore").get("version"))
+                print(zfp.stem, filename, soup.find("museScore").get("version"))
             continue
         except Exception:
             print(zfp.stem, filename, "error while parsing")
