@@ -8,6 +8,7 @@ from attr import define, evolve, field, frozen
 from arrutils import bisect
 from features import Features, displacement_cost, get_entropy
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
+from musescore.proto import note_possible_tags
 
 
 @define
@@ -72,6 +73,8 @@ class MuseScore:
 
     def get_features(self) -> "Features":
         staffs = self.get_piano_staffs()
+        if not staffs:
+            return None
 
         avg_pitches = []
         PS = []
@@ -153,8 +156,7 @@ class MuseScore:
                         if child.tick is not None:
                             stroke_ticks.append(child.tick)
                         else:
-                            previous_tick = stroke_ticks[-1] if stroke_ticks else measure.tick
-                            stroke_ticks.append(previous_tick + child.tick_length)
+                            stroke_ticks.append(stroke_ticks[-1] + child.tick_length if stroke_ticks else measure.tick)
                         for t in tempos_with_no_tick:
                             if t.tick is None:
                                 t.tick = stroke_ticks[-1]
@@ -317,8 +319,8 @@ class Part:
 
     @property
     def is_piano(self) -> bool:
-        name = '' if self.name is None else self.name.lower()
-        instrument_trackName = '' if self.instrument.trackName is None else self.instrument.trackName.lower()
+        name = "" if self.name is None else self.name.lower()
+        instrument_trackName = "" if self.instrument.trackName is None else self.instrument.trackName.lower()
 
         output = name in self.known_piano_values or instrument_trackName in self.known_piano_values
         if not output:
@@ -537,10 +539,10 @@ class Measure:
         number = int(tag.get("number"))
         len_ = tag.get("len")
 
-        KeySig_tag = tag.find("KeySig", recursive=False)
-        keySig = None if KeySig_tag is None else KeySig.from_tag(KeySig_tag)
-        TimeSig_tag = tag.find("TimeSig", recursive=False)
-        timeSig = None if TimeSig_tag is None else TimeSig.from_tag(TimeSig_tag)
+        key_sig_tag = tag.find("KeySig", recursive=False)
+        keySig = None if key_sig_tag is None else KeySig.from_tag(key_sig_tag)
+        time_sig_tag = tag.find("TimeSig", recursive=False)
+        timeSig = None if time_sig_tag is None else TimeSig.from_tag(time_sig_tag)
 
         idx = parent.measures.__len__()
         # assert number == idx + 1, f"{number=} {idx=} {parent.id=} {parent.measures[-1].children=}"
@@ -569,9 +571,7 @@ class Measure:
             elif child.name == "Clef":
                 inst.children.append(Clef.from_tag(child))
             elif child.name == "Harmony":
-                # TODO: Log v1 Harmony sample
-                # TODO: maybe parse Harmony
-                pass
+                inst.children.append(Harmony.from_tag(child))
             elif child.name in ["Beam", "LayoutBreak", "BarLine"]:
                 # TODO: log skipped tag
                 continue
@@ -608,8 +608,7 @@ class Measure:
                 if child.tick is not None:
                     stroke_tick = child.tick
                 else:
-                    previous_tick = stroke_ticks[-1] if stroke_ticks else self.tick
-                    stroke_tick = previous_tick + child.tick_length
+                    stroke_tick = stroke_ticks[-1] + child.tick_length if stroke_ticks else self.tick
                 # TODO: Handle differently in v2, v3
                 if stroke_tick in stroke_ticks:  # old stroke, new voice
                     idx = stroke_ticks.index(stroke_tick)
@@ -862,8 +861,8 @@ class Tuplet:  # TODO: consider tuplets
         normalNotes = int(tag.find("normalNotes", recursive=False).text)
         actualNotes = int(tag.find("actualNotes", recursive=False).text)
         baseNote = tag.find("baseNote", recursive=False).text
-        Number_tag = tag.find("Number", recursive=False)
-        number = None if Number_tag is None else Number.from_tag(Number_tag)
+        number_tag = tag.find("Number", recursive=False)
+        number = None if number_tag is None else Number.from_tag(number_tag)
 
         return cls(
             id=id_,
@@ -895,13 +894,19 @@ class Number:
 
 
 @define
-class Harmony:  # TODO: Find sample in v1
-    # Latches onto the next Rest/Chord
-    # E7/A -> root,name,base = 18,7,17
+class Harmony:  # sample: 666
     root: int  # known values: 13-F,14-C, 15-G, 16-D, 17-A, 18-E, 19-B
-    name: str  # known values: "m", "7"
-    base: int  # known values: same as root
-    play: bool  # known values: "0"
+    extension: str  # known values: 1- major, 16- minor,
+    tick: Optional[int]
+
+    @classmethod
+    def from_tag(cls, tag: bs4.element.Tag) -> "Harmony":
+        assert tag.name == "Harmony"
+        root = int(tag.find("root", recursive=False).text)
+        extension = int(tag.find("extension", recursive=False).text)
+        tick_tag = tag.find("tick", recursive=False)
+        tick = None if tick_tag is None else int(tick_tag.text)
+        return cls(root, extension, tick)
 
 
 @define
@@ -970,22 +975,22 @@ class Chord:  # TODO
         track = None if track_tag is None else int(track_tag.text)
         tick_tag = tag.find("tick", recursive=False)
         tick = None if tick_tag is None else int(tick_tag.text)
-        Tuplet_tag = tag.find("Tuplet", recursive=False)
-        tuplet_id = None if Tuplet_tag is None else int(Tuplet_tag.text)
+        tuplet_tag = tag.find("Tuplet", recursive=False)
+        tuplet_id = None if tuplet_tag is None else int(tuplet_tag.text)
         dots_tag = tag.find("dots", recursive=False)
         dots = 0 if dots_tag is None else int(dots_tag.text)
         durationType = tag.find("durationType", recursive=False).text
 
-        Slur_tag = tag.find("Slur", recursive=False)
-        slur = None if Slur_tag is None else Slur.from_tag(Slur_tag)
+        slur_tag = tag.find("Slur", recursive=False)
+        slur = None if slur_tag is None else Slur.from_tag(slur_tag)
         appoggiatura = tag.find("appoggiatura", recursive=False) is not None
 
         notes = list(map(Note.from_tag, tag.find_all("Note", recursive=False)))
 
-        Articulation_tag = tag.find("Articulation", recursive=False)
-        articulation = None if Articulation_tag is None else Articulation.from_tag(Articulation_tag)
-        Arpeggio_tag = tag.find("Arpeggio", recursive=False)
-        arpeggio = None if Arpeggio_tag is None else Arpeggio.from_tag(Arpeggio_tag)
+        articulation_tag = tag.find("Articulation", recursive=False)
+        articulation = None if articulation_tag is None else Articulation.from_tag(articulation_tag)
+        arpeggio_tag = tag.find("Arpeggio", recursive=False)
+        arpeggio = None if arpeggio_tag is None else Arpeggio.from_tag(arpeggio_tag)
 
         return cls(
             track=track,
@@ -1014,7 +1019,7 @@ class Chord:  # TODO
 
 
 @define
-class Articulation: # TODO: account for fermata
+class Articulation:  # TODO: account for fermata
     subtype: Optional[str]  # known values: "staccato", "sforzato", "fermata"
     track: Optional[int]
 
@@ -1069,9 +1074,12 @@ class Note:
     veloType: Optional[str]  # known values: "user"
     velocity: Optional[int]
 
+    possible_tags: ClassVar[list[str]] = ["tpc2"]
+
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Note":
         assert tag.name == "Note"
+        note_possible_tags(cls, tag)
         track_tag = tag.find("track", recursive=False)
         track = None if track_tag is None else int(track_tag.text)
         visible_tag = tag.find("visible", recursive=False)
@@ -1081,10 +1089,10 @@ class Note:
         tpc = int(tag.find("tpc", recursive=False).text)
         tie = tag.find("Tie", recursive=False) is not None
 
-        Accidental_tag = tag.find("Accidental", recursive=False)
-        accidental = None if Accidental_tag is None else Accidental.from_tag(Accidental_tag)
-        Symbol_tag = tag.find("Symbol", recursive=False)
-        symbol = None if Symbol_tag is None else Symbol.from_tag(Symbol_tag)
+        accidental_tag = tag.find("Accidental", recursive=False)
+        accidental = None if accidental_tag is None else Accidental.from_tag(accidental_tag)
+        symbol_tag = tag.find("Symbol", recursive=False)
+        symbol = None if symbol_tag is None else Symbol.from_tag(symbol_tag)
         veloType_tag = tag.find("veloType", recursive=False)
         veloType = None if veloType_tag is None else veloType_tag.text
         velocity_tag = tag.find("velocity", recursive=False)
