@@ -51,7 +51,7 @@ class MuseScore:
             PS.insert(0, staff.get_playing_speed())
             HDR.insert(0, staff.get_hand_displacement_rate())
             PPR.insert(0, staff.get_polyphony_rate())
-        HS = None if len(avg_pitches) != 2 else abs(avg_pitches[1] - avg_pitches[0])
+        HS = None if len(list(filter(lambda x: x is not None, avg_pitches))) != 2 else abs(avg_pitches[1] - avg_pitches[0])
 
         num_accidental_notes = 0
         midi_num_occurrence = {}
@@ -344,7 +344,9 @@ class Staff:
                         yield note
 
     def get_average_pitch(self) -> float:
-        return np.fromiter((n.pitch for n in self.notes), int).mean()
+        arr = np.fromiter((n.pitch for n in self.notes), int)
+        if len(arr) != 0:
+            return arr.mean()
 
     def get_hand_displacement_rate(self) -> float:
         chords = list(self.chords)
