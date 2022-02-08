@@ -1,4 +1,5 @@
 import csv
+from typing import Any
 from zipfile import ZipFile
 
 from bs4 import BeautifulSoup
@@ -40,6 +41,14 @@ if __name__ == "__main__":
                         data.append(f.PPR[0])
                         data.append(f.PPR[1])
                         data.append(f.ANR)
+                        info = musescore.meta_info
+                        def func(dct: dict[str, Any], keys: list[str]) -> Any:
+                            for key in keys:
+                                if key in dct:
+                                    return dct[key]
+                        data.append(func(info, ["workTitle", "Title"]))
+                        data.append(func(info, ["Subtitle"]))
+                        data.append(func(info, ["composer", "Composer"]))
                         rows.append(data)
                     except IndexError:
                         pass
@@ -55,7 +64,6 @@ if __name__ == "__main__":
     print("done!")
     print("v1 not piano names", v1.Part.known_not_piano_values)
     print("v2 not piano names", v2.Part.known_not_piano_values)
-
     Details = [
         "id",
         "filename",
@@ -71,7 +79,11 @@ if __name__ == "__main__":
         "PPR_LH",
         "PPR_RH",
         "ANR",
+        "title",
+        "subtitle",
+        "composer",
     ]
+
     with open("mdc.csv", "w", encoding="utf-8", newline="") as f:
         write = csv.writer(f)
         write.writerow(Details)
