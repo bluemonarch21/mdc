@@ -62,8 +62,8 @@ if __name__ == "__main__":
             raise
 
     print("done!")
-    print("v1 not piano names", v1.Part.known_not_piano_values)
-    print("v2 not piano names", v2.Part.known_not_piano_values)
+    # print("v1 not piano names", v1.Part.known_not_piano_values)
+    # print("v2 not piano names", v2.Part.known_not_piano_values)
     Details = [
         "id",
         "filename",
