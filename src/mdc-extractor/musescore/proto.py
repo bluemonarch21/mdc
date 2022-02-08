@@ -1,6 +1,14 @@
-from typing import Protocol
+from typing import Protocol, Iterable
 
 import bs4.element
+
+
+class ProtoNote(Protocol):
+    pitch: int
+
+
+class ProtoChord(Protocol):
+    notes: Iterable[ProtoNote]
 
 
 class WithPossibleTags(Protocol):

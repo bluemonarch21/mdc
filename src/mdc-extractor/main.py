@@ -23,7 +23,26 @@ if __name__ == "__main__":
             if musescore is not None:
                 f = musescore.get_features()
                 if f:
-                    print(zfp.stem, filename, f, musescore.meta_info)
+                    try:
+                        print(zfp.stem, filename, f, musescore.meta_info)
+                        data = []
+                        data.append(zfp.stem)
+                        data.append(filename)
+                        data.append(musescore.version)
+                        data.append(musescore.programVersion)
+                        data.append(f.PS[0])
+                        data.append(f.PS[1])
+                        data.append(f.PE)
+                        data.append(f.DSR)
+                        data.append(f.HDR[0])
+                        data.append(f.HDR[1])
+                        data.append(f.HS)
+                        data.append(f.PPR[0])
+                        data.append(f.PPR[1])
+                        data.append(f.ANR)
+                        rows.append(data)
+                    except IndexError:
+                        pass
                 else:
                     print(".")
             else:
@@ -33,99 +52,24 @@ if __name__ == "__main__":
             print(zfp.stem, filename, "error while parsing")
             raise
 
-        version = soup.find("museScore").get("version")
-
-        b_version = soup.find_all("programVersion")
-        version_list = []
-        for programVersion in b_version:
-            if programVersion not in version_list:
-                version_list.append(programVersion.text)
-                # print(programVersion.text)
-
-        # metatags = soup.find('museScore').find('Score').find_all('metaTag')
-        # for tag in metatags:
-        #     name = tag.get('name')
-        #     text = tag.text
-        #     dct = {
-        #         'composer': 'metaTag:name=composer'
-        #     }        #     data[dct[name]] = text
-
-        num_accidental_notes = 0
-        midi_num_occurrence = {}
-        notes = soup.find_all("Note")
-        for note in notes:
-            # count midi numbers
-            midi_num = note.find("pitch").text
-            if midi_num in midi_num_occurrence:
-                midi_num_occurrence[midi_num] += 1
-            else:
-                midi_num_occurrence[midi_num] = 1
-            # count altered notes
-            if note.find("Accidental") is not None:
-                num_accidental_notes += 1
-        PE = get_entropy(midi_num_occurrence)
-        ANR = num_accidental_notes / len(notes)
-
-        b_trackName = soup.find_all("trackName")
-        instrument_list = []
-        for instrument in b_trackName:
-            if instrument not in instrument_list:
-                instrument_list.append(instrument.text)
-                # print(instrument.text)
-
-        # print("--------------")
-
-        b_tempo = soup.find_all("tempo")
-        tempo_list = []
-        for tempo in b_tempo:
-            if tempo not in tempo_list:
-                tempo_list.append(tempo.text)
-                # print(tempo.text)
-
-        # print("--------------")
-
-        b_instrumentId = soup.find_all("instrumentId")
-        instrumentId_list = []
-        for instrumentId in b_instrumentId:
-            if instrumentId not in instrumentId_list:
-                instrumentId_list.append(instrumentId.text)
-                # print(instrumentId.text)
-
-        # TODO: Check for correct list (Piano, Grand Piano, keyboard.piano.[]
-        piano = "Piano"
-        hasPiano = False
-        if piano in instrument_list:
-            hasPiano = True
-        else:
-            hasPiano = False
-
-        data = []
-        data.append(zfp.stem)
-        data.append(filename)
-        data.append(version)
-        data.append(version_list)
-        data.append(instrument_list)
-        data.append(tempo_list)
-        data.append(instrumentId_list)
-        data.append(hasPiano)
-        data.append(PE)
-        data.append(ANR)
-        # print('data', data)
-        rows.append(data)
-
-    # print('done!')
-    # print('rows', rows)
+    print("done!")
+    print("v1 not piano names", v1.Part.known_not_piano_values)
+    print("v2 not piano names", v2.Part.known_not_piano_values)
 
     Details = [
         "id",
         "filename",
         "version",
         "programVersion",
-        "trackName",
-        "Tempo",
-        "IntrumentId",
-        "hasPiano?",
+        "PS_LH",
+        "PS_RH",
         "PE",
+        "DSR",
+        "HDR_LH",
+        "HDR_RH",
+        "HS",
+        "PPR_LH",
+        "PPR_RH",
         "ANR",
     ]
     with open("mdc.csv", "w", encoding="utf-8", newline="") as f:
