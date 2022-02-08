@@ -28,13 +28,13 @@ def displacement_cost(c1: ProtoChord, c2: ProtoChord) -> int:
 
 @define
 class Features:
-    PS: tuple[float, float]  # playing speed
-    PE: float  # pitch entropy
-    DSR: float  # distinct stroke rate
-    HDR: tuple[float, float]  # hand displacement rate
-    HS: float  # hand stretch
-    PPR: tuple[float, float]  # polyphony rate
-    ANR: float  # altered note rate
+    PS: tuple[float, float]  # playing speed   # None if no tempo
+    PE: float  # pitch entropy                 # None if no notes exist
+    DSR: float  # distinct stroke rate         # None/NaN if both hand does not exist
+    HDR: tuple[float, float]  # hand displacement rate  # None if no notes exist
+    HS: float  # hand stretch                  # None/NaN if both hand does not exist
+    PPR: tuple[float, float]  # polyphony rate # None if no notes exist
+    ANR: float  # altered note rate            # None if no notes exist
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
