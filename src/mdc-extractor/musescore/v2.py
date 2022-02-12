@@ -259,7 +259,7 @@ class Part:
 @define
 class Instrument:
     # child elements
-    longName: str  # new in v2
+    longName: Optional[str]  # new in v2
     shortName: Optional[str]  # new in v2
     trackName: str
     instrumentId: Optional[str]  # new in v2
@@ -268,7 +268,8 @@ class Instrument:
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Instrument":
         assert tag.name == "Instrument"
-        longName = tag.find("longName", recursive=False).text
+        longName_tag = tag.find("longName", recursive=False)
+        longName = None if longName_tag is None else longName_tag.text
         shortName_tag = tag.find("shortName", recursive=False)
         shortName = None if shortName_tag is None else shortName_tag.text
         trackName = tag.find("trackName", recursive=False).text
