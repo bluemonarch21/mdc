@@ -1,5 +1,6 @@
+from collections.abc import Iterator
 from itertools import chain, cycle
-from typing import ClassVar, Iterator, Optional, Union
+from typing import ClassVar, Optional, Union
 
 import bs4.element
 import numpy as np
@@ -84,17 +85,18 @@ class MuseScore:
         for part in self.parts:
             if part.is_piano:
                 if len(part.staffs) == 2:
+                    # assumes staffs are sorted and their ordering corresponds to part.staffs
                     output.extend((self.staffs[i], self.staffs[i + 1]))
                 elif len(part.staffs) == 1:
-                    # TODO: Log
+                    # TODO: Log piano has only 1 staff
                     # retval.append(self.staffs[i])
                     pass
                 else:
-                    # TODO: Log
+                    # TODO: Log piano has no staffs
                     pass
             i += len(part.staffs)
         if len(output) != 0 and len(output) != 2:
-            # TODO: Log
+            # TODO: Log score does not have left and right hand piano
             pass
         return output
 

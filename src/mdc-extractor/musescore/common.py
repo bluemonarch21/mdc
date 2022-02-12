@@ -1,8 +1,10 @@
+from collections.abc import Iterable, Iterator, Sequence
 from functools import reduce
 from itertools import chain, islice
 
 from features import Features
-from musescore.proto import Measure, Staff
+from musescore.proto import Measure, Part, Staff
+from utils.arr import find
 from utils.math import get_entropy
 
 
@@ -67,3 +69,14 @@ def get_distinct_stroke_rate(*staffs: Staff) -> float:
         intersection += len(reduce(_a_intersect_stroke_ticks, islice(measures, 1, None), measures[0].stroke_ticks))
         union += len(reduce(_union_stroke_ticks, islice(measures, 1, None), measures[0].stroke_ticks))
     return 1 - intersection / union
+
+
+def get_staffs_from_piano_parts_id(parts: Iterable[Part], staffs: Sequence[Staff]) -> Iterator[Staff]:
+    for part in parts:
+        if part.is_piano:
+            for s in part.staffs:
+                try:
+                    yield find(staffs, s.id, s.id - 1, lambda e: e.id)
+                except ValueError:
+                    # could not find piano staff with specified id
+                    pass

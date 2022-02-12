@@ -1,12 +1,13 @@
+from collections.abc import Iterator
 from itertools import chain, cycle
-from typing import ClassVar, Iterator, Optional, Union
+from typing import ClassVar, Optional, Union
 
 import bs4.element
 import numpy as np
 from attr import define, evolve, field
 
 from features import Features, displacement_cost
-from musescore.common import get_features
+from musescore.common import get_features, get_staffs_from_piano_parts_id
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 from utils.arr import bisect
@@ -123,25 +124,9 @@ class Score:
         self.tempo_ticks = [t.tick for t in tempos]
 
     def get_piano_staffs(self) -> list["Staff"]:
-        output = []
-        for part in self.parts:
-            if part.is_piano:
-                for s in part.staffs:
-                    idx = s.id - 1
-                    while 0 <= idx < len(self.staffs):
-                        if self.staffs[idx].id == s.id:
-                            output.append(self.staffs[idx])
-                            break
-                        elif self.staffs[idx].id > s.id:
-                            idx -= 1
-                        elif self.staffs[idx].id < s.id:
-                            idx += 1
-                    else:
-                        # could not find staff with specified id
-                        # TODO: log
-                        pass
+        output = list(get_staffs_from_piano_parts_id(self.parts, self.staffs))
         if len(output) != 0 and len(output) != 2:
-            # TODO: Log
+            # TODO: Log score does not have left and right hand piano
             pass
         return output
 

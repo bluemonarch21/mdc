@@ -1,4 +1,4 @@
-from typing import Any, Iterable, Iterator, Optional, Protocol
+from typing import Any, Iterable, Iterator, Optional, Protocol, Union
 
 import bs4.element
 
@@ -17,6 +17,7 @@ class Measure(Protocol):
 
 
 class Staff(Protocol):
+    id: int
     notes: Iterator[Note]
     measures: list[Measure]
 
@@ -31,6 +32,15 @@ class Staff(Protocol):
 
     def get_polyphony_rate(self) -> float:
         ...
+
+
+class Identified(Protocol):
+    id: int
+
+
+class Part(Protocol):
+    is_piano: bool
+    staffs: list[Union[Identified, Protocol]]
 
 
 class WithPossibleTags(Protocol):

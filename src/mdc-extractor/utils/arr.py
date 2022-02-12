@@ -1,10 +1,16 @@
-from typing import TypeVar
+from collections.abc import Sequence
+from typing import Callable, TypeVar
 
 T = TypeVar("T")
+U = TypeVar("U")
 
 
-def bisect(arr: list[T], e: T) -> tuple[int, int]:
+def bisect(arr: Sequence[T], e: T) -> tuple[int, int]:
     """Returns insertion index to remain in sorted order [left, right].
+
+    Args:
+        arr: sorted sequence
+        e: element to find insertion index
 
     Reference:
         https://github.com/d3/d3-array#bisect
@@ -55,3 +61,25 @@ def bisect(arr: list[T], e: T) -> tuple[int, int]:
         if arr[-1] <= e:
             right = len(arr)
     return left, right
+
+
+def find(arr: Sequence[T], c: U, hint: int, getter: Callable[[T], U] = None) -> T:
+    """Returns e in sorted sequence `arr` that has value `c` from getter using `hint`.
+
+    Args:
+        arr: sorted sequence
+        c: value to find
+        hint: hint of index to start searching
+        getter: callable to get value to compare element to c
+    """
+    if getter is None:
+        getter = lambda x: x
+    while 0 <= hint < len(arr):
+        if getter(arr[hint]) == c:
+            return arr[hint]
+        elif getter(arr[hint]) > c:
+            hint -= 1
+        elif getter(arr[hint]) < c:
+            hint += 1
+    else:
+        raise ValueError(f"value '{c}' is not in the sequence")
