@@ -5,10 +5,11 @@ import bs4.element
 import numpy as np
 from attr import define, evolve, field
 
-from arrutils import bisect
-from features import Features, displacement_cost, get_entropy
+from features import Features, displacement_cost
+from musescore.common import get_features
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
+from utils.arr import bisect
 
 
 @define
@@ -37,53 +38,11 @@ class MuseScore:
         score = Score.from_tag(tag.find("Score", recursive=False))
         return cls(version=version, programVersion=programVersion, programRevision=programRevision, score=score)
 
-    def get_features(self) -> "Features":
+    def get_features(self) -> Features:
         staffs = self.score.get_piano_staffs()
         if not staffs:
             return None
-
-        avg_pitches = []
-        PS = []
-        HDR = []
-        PPR = []
-        for staff in staffs:
-            avg_pitches.insert(0, staff.get_average_pitch())
-            PS.insert(0, staff.get_playing_speed())
-            HDR.insert(0, staff.get_hand_displacement_rate())
-            PPR.insert(0, staff.get_polyphony_rate())
-        HS = None if len(list(filter(lambda x: x is not None, avg_pitches))) != 2 else abs(avg_pitches[1] - avg_pitches[0])
-
-        num_accidental_notes = 0
-        midi_num_occurrence = {}
-        count = 0
-        for note in chain.from_iterable([staff.notes for staff in staffs]):
-            # count midi numbers
-            if note.pitch in midi_num_occurrence:
-                midi_num_occurrence[note.pitch] += 1
-            else:
-                midi_num_occurrence[note.pitch] = 1
-            # count altered notes
-            if note.accidental is not None:
-                num_accidental_notes += 1
-            count += 1
-        PE = None if count == 0 else get_entropy(midi_num_occurrence)
-        ANR = None if count == 0 else num_accidental_notes / count
-
-        DSR = self.get_distinct_stroke_rate()
-        return Features(PS=PS, PE=PE, DSR=DSR, HDR=HDR, HS=HS, PPR=PPR, ANR=ANR)
-
-    def get_distinct_stroke_rate(self) -> float:
-        staffs = self.score.get_piano_staffs()
-        if len(staffs) != 2:
-            return None
-        right_and_left = 0
-        right_or_left = 0
-        for left_measure, right_measure in zip(staffs[1].measures, staffs[0].measures):
-            right = right_measure.stroke_ticks
-            left = left_measure.stroke_ticks
-            right_and_left += len(right.intersection(left))
-            right_or_left += len(right.union(left))
-        return 1 - right_and_left / right_or_left
+        return get_features(*staffs)
 
     @property
     def meta_info(self) -> dict[str, str]:

@@ -1,14 +1,36 @@
-from typing import Protocol, Iterable
+from typing import Any, Iterable, Iterator, Optional, Protocol
 
 import bs4.element
 
 
-class ProtoNote(Protocol):
+class Note(Protocol):
     pitch: int
+    accidental: Optional[Any]
 
 
-class ProtoChord(Protocol):
-    notes: Iterable[ProtoNote]
+class Chord(Protocol):
+    notes: Iterable[Note]
+
+
+class Measure(Protocol):
+    stroke_ticks: set[int]  # TODO: Use numpy array instead
+
+
+class Staff(Protocol):
+    notes: Iterator[Note]
+    measures: list[Measure]
+
+    def get_average_pitch(self) -> float:
+        ...
+
+    def get_hand_displacement_rate(self) -> float:
+        ...
+
+    def get_playing_speed(self) -> float:
+        ...
+
+    def get_polyphony_rate(self) -> float:
+        ...
 
 
 class WithPossibleTags(Protocol):
