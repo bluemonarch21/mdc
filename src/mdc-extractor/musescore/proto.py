@@ -40,7 +40,8 @@ class Identified(Protocol):
 
 class Part(Protocol):
     is_piano: bool
-    staffs: list[Union[Identified, Protocol]]
+    staffs: list[Union[Identified, object]]
+    instrument: object
 
 
 class WithPossibleTags(Protocol):

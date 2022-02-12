@@ -7,7 +7,7 @@ import numpy as np
 from attr import define, evolve, field
 
 from features import Features, displacement_cost
-from musescore.common import get_features, get_staffs_from_piano_parts_id
+from musescore.common import get_features, get_staffs_from_piano_parts_id, is_piano
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 from utils.arr import bisect
@@ -172,22 +172,7 @@ class Part:
 
     @property
     def is_piano(self) -> bool:
-        trackName = "" if self.trackName is None else self.trackName.lower()
-        instrument_trackName = "" if self.instrument.trackName is None else self.instrument.trackName.lower()
-
-        output = (
-            trackName in self.known_piano_values
-            or instrument_trackName in self.known_piano_values
-            or self.instrument.instrumentId in self.known_piano_values
-        )
-        if not output:
-            if trackName not in self.known_not_piano_values:
-                self.known_not_piano_values.append(trackName)
-            if instrument_trackName not in self.known_not_piano_values:
-                self.known_not_piano_values.append(instrument_trackName)
-            if self.instrument.instrumentId not in self.known_not_piano_values:
-                self.known_not_piano_values.append(self.instrument.instrumentId)
-        return output
+        return is_piano(self)
 
     @define
     class Staff:

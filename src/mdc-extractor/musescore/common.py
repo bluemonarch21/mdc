@@ -80,3 +80,38 @@ def get_staffs_from_piano_parts_id(parts: Iterable[Part], staffs: Sequence[Staff
                 except ValueError:
                     # could not find piano staff with specified id
                     pass
+
+
+_known_piano_values: set[str] = {
+    "piano",
+    "grand piano",
+    "keyboard",
+    "pno.",
+    "ピアノ",
+    "keyboard.piano",
+    "keyboard.harpsichord",
+}
+_known_not_piano_values: set[str] = set()
+
+
+def _found_value_in_obj(obj, not_found_memo: list[str], *attrs: str) -> bool:
+    for attr in attrs:
+        if hasattr(obj, attr):
+            val = getattr(obj, attr)
+            if not val:
+                continue
+            val = val.lower()
+            if val in _known_piano_values:
+                return True
+            not_found_memo.append(val)
+    return False
+
+
+def is_piano(part: Part) -> bool:
+    values = []
+    if _found_value_in_obj(part, values, "name", "trackName"):
+        return True
+    if _found_value_in_obj(part.instrument, values, "instrumentId", "trackName", "longName", "shortName"):
+        return True
+    _known_not_piano_values.update(values)
+    return False
