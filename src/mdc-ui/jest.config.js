@@ -9,7 +9,8 @@ module.exports = {
   testEnvironment: 'jsdom',
   modulePaths: ['src'],
   moduleNameMapper: {
-    '\\.(css|scss)$': 'identity-obj-proxy',
+    '\\.(css|s[ac]ss)$': 'identity-obj-proxy',
+    '\\.(png|jpe?g|gif|webp|svg)$': '<rootDir>/__mocks__/mockAssets.js',
   },
   globals: {},
 };
