@@ -7,7 +7,7 @@ import numpy as np
 from attr import define, evolve, field, frozen
 
 from features import Features, displacement_cost
-from musescore.common import get_features, is_piano
+from musescore.common import get_features, get_vbox_text, is_piano
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 from utils.arr import bisect
@@ -130,15 +130,7 @@ class MuseScore:
 
     @property
     def meta_info(self) -> dict[str, str]:
-        dct = {}
-        for staff in self.staffs:
-            if staff.vbox is not None:
-                for text in staff.vbox.texts:
-                    if text.subtype not in dct:
-                        dct[text.subtype] = text.text
-                    else:
-                        dct[text.subtype] = [dct[text.subtype], text.text]
-        return dct
+        return get_vbox_text(self.staffs)
 
 
 @frozen

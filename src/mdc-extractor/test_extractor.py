@@ -29,15 +29,24 @@ expected_output = [
 class ExtractorTestCase(unittest.TestCase):
     def help_test(self, version):
         d = difflib.Differ()
+        missing_files = []
         for expected in filter(lambda o: o[1] == version, expected_output):
             id_, _, ex_features = expected
-            actual, _ = open_and_extract(REPO / f"assets/musescore/{id_}.zip", throw=True, verbose=False)
+            try:
+                actual, _ = open_and_extract(REPO / f"assets/musescore/{id_}.zip", throw=True, verbose=False)
+            except FileNotFoundError:
+                missing_files.append(str(id_))
+                continue
             with self.subTest(id=id_, version=version):
                 try:
                     self.assertEqual(actual, ex_features)
                 except AssertionError:
                     sys.stdout.writelines(d.compare([str(actual) + "\n"], [str(ex_features) + "\n"]))
                     raise
+        if missing_files:
+            script_path = REPO / 'src/musescore-downloader/download-musescore'
+            args = ' '.join(missing_files)
+            self.fail(f"missing files, try running:\npython {script_path.absolute()} {args}")
 
     def test_v114(self):
         self.help_test(1.14)

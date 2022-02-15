@@ -115,3 +115,16 @@ def is_piano(part: Part) -> bool:
         return True
     _known_not_piano_values.update(values)
     return False
+
+
+def get_vbox_text(staffs: list) -> dict[str, str]:
+    dct  = {}
+    for staff in staffs:
+        if staff.vbox is not None:
+            for text in staff.vbox.texts:
+                key = text.subtype or getattr(text, "style", False) or str(hash(text))[:6]
+                if key not in dct:
+                    dct[key] = text.text
+                else:
+                    dct[key] = [dct[key], text.text]
+    return dct

@@ -1,9 +1,9 @@
 from typing import ClassVar, Optional, Union
 
 import bs4.element
+from attrs import define
 from bs4 import BeautifulSoup
 
-from attrs import define
 from musescore import v1, v2
 
 

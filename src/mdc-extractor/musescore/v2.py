@@ -7,7 +7,7 @@ import numpy as np
 from attr import define, evolve, field
 
 from features import Features, displacement_cost
-from musescore.common import get_features, get_staffs_from_piano_parts_id, is_piano
+from musescore.common import get_features, get_staffs_from_piano_parts_id, get_vbox_text, is_piano
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 from utils.arr import bisect
@@ -47,19 +47,8 @@ class MuseScore:
 
     @property
     def meta_info(self) -> dict[str, str]:
-        dct = {}
-        for tag in self.score.metaTags:
-            if tag.text:
-                dct[tag.name] = tag.text
-        # TODO: merge info better
-        for staff in self.score.staffs:
-            if staff.vbox is not None:
-                for text in staff.vbox.texts:
-                    key = text.subtype or text.style or str(hash(text))[:6]
-                    if key not in dct:
-                        dct[key] = text.text
-                    else:
-                        dct[key] = [dct[key], text.text]
+        dct = get_vbox_text(self.score.staffs)
+        dct.update({tag.name: tag.text for tag in self.score.metaTags if tag.text})
         return dct
 
 

@@ -46,6 +46,7 @@ def main(
                     continue
                 if ids and id not in ids:
                     logger.log(f"{id} skipped (not specified)\n")
+                    continue
             ipns = ref[6:]
             url = f"https://ipfs.infura.io/ipfs/{ipns}/"
             res = requests.get(url)
