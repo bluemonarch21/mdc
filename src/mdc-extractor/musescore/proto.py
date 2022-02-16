@@ -6,10 +6,18 @@ import bs4.element
 class Note(Protocol):
     pitch: int
     accidental: Optional[Any]
+    tie: bool
 
 
 class Chord(Protocol):
     notes: Iterable[Note]
+    durationType: str
+    dots: int
+
+
+class Rest(Protocol):
+    durationType: str
+    dots: int
 
 
 class Measure(Protocol):

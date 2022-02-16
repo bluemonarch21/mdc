@@ -7,7 +7,8 @@ import numpy as np
 from attr import define, evolve, field, frozen
 
 from features import Features, displacement_cost
-from musescore.common import get_average_pitch_from_iterator, get_features, get_vbox_text, is_piano
+from musescore.common import (get_average_pitch_from_np_array, get_features, get_hand_displacement_rate_from_list,
+                              get_polyphony_rate, get_vbox_text, is_piano)
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 from utils.arr import bisect
@@ -364,11 +365,16 @@ class Staff:
         return inst
 
     @property
-    def chords(self) -> Iterator["Chord"]:
+    def strokes(self) -> Iterator[Union["Chord", "Rest"]]:
         for measure in self.measures:
             for stroke in measure.strokes:
-                if isinstance(stroke, Chord):
-                    yield stroke
+                yield stroke
+
+    @property
+    def flattened_chords(self) -> Iterator["Chord"]:
+        for stroke in self.strokes:
+            if isinstance(stroke, Chord):
+                yield stroke
 
     @property
     def notes(self) -> Iterator["Note"]:
@@ -379,27 +385,13 @@ class Staff:
                         yield note
 
     def get_average_pitch(self) -> Optional[float]:
-        return get_average_pitch_from_iterator(self.notes)
+        return get_average_pitch_from_np_array(self.notes)
 
-    def get_hand_displacement_rate(self) -> float:
-        chords = list(self.chords)
-        arr = np.empty(len(chords) - 1, int)
-        for i in range(len(chords) - 1):
-            arr[i] = displacement_cost(chords[i], chords[i + 1])
-        return arr.mean() / 2
+    def get_hand_displacement_rate(self) -> Optional[float]:
+        return get_hand_displacement_rate_from_list(self.flattened_chords)
 
-    def get_polyphony_rate(self) -> float:
-        num_chord_strokes = 0
-        num_strokes = 0
-        for measure in self.measures:
-            for stroke in measure.strokes:
-                if isinstance(stroke, Chord):
-                    if not all(n.tie for n in stroke.notes):
-                        # count as new stroke if at least one note is not tied
-                        # if all is tied, it just is the old stroke with longer tick length
-                        num_chord_strokes += int(stroke.is_chord)
-                        num_strokes += 1
-        return num_chord_strokes / num_strokes
+    def get_polyphony_rate(self) -> Optional[float]:
+        return get_polyphony_rate(self.flattened_chords)
 
     def get_playing_speed(self) -> float:
         if not self.parent.tempos:

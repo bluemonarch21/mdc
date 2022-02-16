@@ -1,12 +1,12 @@
 from collections.abc import Iterable, Iterator, Sequence
 from functools import reduce
 from itertools import chain, islice
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 
-from features import Features
-from musescore.proto import Measure, Part, Staff, Note
+from features import Features, displacement_cost
+from musescore.proto import Chord, Measure, Note, Part, Rest, Staff
 from utils.arr import find
 from utils.math import get_entropy
 
@@ -121,7 +121,7 @@ def is_piano(part: Part) -> bool:
 
 
 def get_vbox_text(staffs: list) -> dict[str, str]:
-    dct  = {}
+    dct = {}
     for staff in staffs:
         if staff.vbox is not None:
             for text in staff.vbox.texts:
@@ -132,7 +132,37 @@ def get_vbox_text(staffs: list) -> dict[str, str]:
                     dct[key] = [dct[key], text.text]
     return dct
 
-def get_average_pitch_from_iterator(notes: Iterator[Note]) -> Optional[float]:
-    arr = np.fromiter((n.pitch for n in notes), int)
-    if len(arr) != 0:
-        return arr.mean()
+
+def get_average_pitch_from_np_array(notes: Iterator[Note]) -> Optional[float]:
+    pitches = np.fromiter((n.pitch for n in notes), int)
+    if len(pitches) != 0:
+        return pitches.mean()
+    return None
+
+
+def get_hand_displacement_rate_from_list(flattened_chords: Sequence[Chord]) -> Optional[float]:
+    flattened_chords = list(flattened_chords)
+    if flattened_chords:
+        costs = np.empty(len(flattened_chords) - 1, int)
+        for i in range(len(flattened_chords) - 1):
+            costs[i] = displacement_cost(flattened_chords[i], flattened_chords[i + 1])
+        return costs.mean() / 2
+    return None
+
+
+def is_chord(chord: Chord) -> bool:
+    return len(chord.notes) > 1
+
+
+def get_polyphony_rate(flattened_chords: Iterator[Chord]) -> Optional[float]:
+    num_chord_strokes = 0
+    num_strokes = 0
+    for chord in flattened_chords:
+        if not all(n.tie for n in chord.notes):
+            # count as new stroke if at least one note is not tied
+            # if all is tied, it just is the old stroke with longer tick length
+            num_chord_strokes += int(is_chord(chord))
+            num_strokes += 1
+    if num_strokes == 0:
+        return None
+    return num_chord_strokes / num_strokes

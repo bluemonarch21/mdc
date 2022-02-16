@@ -24,7 +24,7 @@ def get_dots_factor(dots: int) -> float:
         1.875
     """
     if dots > 0:
-        return 0.5 ** dots + get_dots_factor(dots - 1)
+        return 0.5**dots + get_dots_factor(dots - 1)
     if dots == 0:
         return 1
 
