@@ -1,12 +1,13 @@
 from collections.abc import Iterable, Iterator, Sequence
 from functools import reduce
-from itertools import chain, islice
+from itertools import chain, islice, tee, zip_longest
 from typing import Optional, Union
 
 import numpy as np
 
 from features import Features, displacement_cost
-from musescore.proto import Chord, Measure, Note, Part, Rest, Staff
+from musescore.proto import Chord, Measure, Note, Part, Rest, Staff, Tempo
+from musescore.utils import get_pulsation
 from utils.arr import find
 from utils.math import get_entropy
 
@@ -166,3 +167,29 @@ def get_polyphony_rate(flattened_chords: Iterator[Chord]) -> Optional[float]:
     if num_strokes == 0:
         return None
     return num_chord_strokes / num_strokes
+
+
+def get_playing_speed(tempo_chords: Iterator[tuple[Tempo, list[Chord]]], last_tick: int) -> float:
+    total_area = 0
+    playing_speeds = []
+    a, b = tee(tempo_chords)
+    next(b, None)
+    for c, n in zip_longest(a, b):
+        c: tuple[Tempo, list[Chord]]
+        n: Optional[tuple[Tempo, list[Chord]]]
+        tempo, chords = c
+        if chords:
+            ps = sum(get_pulsation(c.durationType, c.dots) for c in chords) / tempo.tempo / len(chords)
+        else:
+            ps = 0
+        playing_speeds.append(ps)
+        if n is None:  # last element
+            # maybe do: handle no strokes?
+            del_x = last_tick - tempo.tick
+        else:
+            del_x = n[0].tick - tempo.tick
+        total_area += del_x * ps
+    avg_ps = total_area / last_tick
+
+    # TODO: numpy calculate variance PS
+    return avg_ps

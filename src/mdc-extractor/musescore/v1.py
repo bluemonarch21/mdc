@@ -8,7 +8,7 @@ from attr import define, evolve, field, frozen
 
 from features import Features, displacement_cost
 from musescore.common import (get_average_pitch_from_np_array, get_features, get_hand_displacement_rate_from_list,
-                              get_polyphony_rate, get_vbox_text, is_piano)
+                              get_playing_speed, get_polyphony_rate, get_vbox_text, is_piano)
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 from utils.arr import bisect
@@ -405,29 +405,7 @@ class Staff:
                     tempo_chords[tempo_idx].append(stroke)
             last_tick = measure.get_last_tick()
 
-        total_area = 0
-        playing_speeds = []
-        for i in range(len(tempo_chords)):
-            tempo = self.parent.tempos[i]
-            chords = tempo_chords[i]
-            # calculate PS
-            if chords:
-                ps = sum(c.pulsation for c in chords) / tempo.tempo / len(chords)
-            else:
-                ps = 0
-            playing_speeds.append(ps)
-            # calculate average PS
-            if i == len(self.parent.tempos) - 1:  # last element
-                # maybe do: handle no strokes?
-                del_x = last_tick - tempo.tick
-            else:
-                del_x = self.parent.tempos[i + 1].tick - tempo.tick
-            y = ps
-            total_area += del_x * y
-        avg_ps = total_area / last_tick
-
-        # TODO: numpy calculate variance PS
-        return avg_ps
+        return get_playing_speed(zip(self.parent.tempos, tempo_chords), last_tick)
 
 
 @define

@@ -3,6 +3,11 @@ from typing import Any, Iterable, Iterator, Optional, Protocol, Union
 import bs4.element
 
 
+class Tempo(Protocol):
+    tempo: float
+    tick: int
+
+
 class Note(Protocol):
     pitch: int
     accidental: Optional[Any]
