@@ -1,7 +1,8 @@
+from bisect import bisect_right
 from collections.abc import Iterable, Iterator, Sequence
 from functools import reduce
 from itertools import chain, islice, tee, zip_longest
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 
@@ -167,6 +168,16 @@ def get_polyphony_rate(flattened_chords: Iterator[Chord]) -> Optional[float]:
     if num_strokes == 0:
         return None
     return num_chord_strokes / num_strokes
+
+
+def get_chords_for_each_tempo(measures: list[Measure], tempo_ticks: list[int]):
+    chords_each_tempo: list[list[Chord]] = [[] for _ in range(len(tempo_ticks))]
+    for measure in measures:
+        for stroke in measure.strokes:
+            if hasattr(stroke, "notes"):  # isinstance(stroke, Chord)
+                tempo_idx = bisect_right(tempo_ticks, measure.get_stroke_tick(stroke)) - 1
+                chords_each_tempo[tempo_idx].append(stroke)
+    return chords_each_tempo
 
 
 def get_playing_speed(tempo_chords: Iterator[tuple[Tempo, list[Chord]]], last_tick: int) -> float:

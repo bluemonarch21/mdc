@@ -6,9 +6,17 @@ import bs4.element
 import numpy as np
 from attr import define, evolve, field, frozen
 
-from features import Features, displacement_cost
-from musescore.common import (get_average_pitch_from_np_array, get_features, get_hand_displacement_rate_from_list,
-                              get_playing_speed, get_polyphony_rate, get_vbox_text, is_piano)
+from features import Features
+from musescore.common import (
+    get_average_pitch_from_np_array,
+    get_chords_for_each_tempo,
+    get_features,
+    get_hand_displacement_rate_from_list,
+    get_playing_speed,
+    get_polyphony_rate,
+    get_vbox_text,
+    is_piano,
+)
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 from utils.arr import bisect
@@ -396,15 +404,8 @@ class Staff:
     def get_playing_speed(self) -> float:
         if not self.parent.tempos:
             return None
-        tempo_chords: list[list[Chord]] = [[] for _ in range(len(self.parent.tempos))]
-        last_tick: int
-        for measure in self.measures:
-            for stroke in measure.strokes:
-                if isinstance(stroke, Chord):
-                    tempo_idx = bisect(self.parent.tempo_ticks, measure.get_stroke_tick(stroke))[1] - 1
-                    tempo_chords[tempo_idx].append(stroke)
-            last_tick = measure.get_last_tick()
-
+        tempo_chords = get_chords_for_each_tempo(self.measures, self.parent.tempo_ticks)
+        last_tick = max(self.measures[-1].stroke_ticks)
         return get_playing_speed(zip(self.parent.tempos, tempo_chords), last_tick)
 
 

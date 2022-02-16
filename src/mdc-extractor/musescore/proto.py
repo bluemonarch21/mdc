@@ -14,19 +14,25 @@ class Note(Protocol):
     tie: bool
 
 
-class Chord(Protocol):
+class Stroke(Protocol):
+    durationType: str
+    dots: int
+
+
+class Chord(Stroke):
     notes: Iterable[Note]
-    durationType: str
-    dots: int
 
 
-class Rest(Protocol):
-    durationType: str
-    dots: int
+class Rest(Stroke):
+    pass
 
 
 class Measure(Protocol):
+    strokes: list[Stroke]
     stroke_ticks: set[int]  # TODO: Use numpy array instead
+
+    def get_stroke_tick(stroke: Stroke) -> int:
+        ...
 
 
 class Staff(Protocol):
