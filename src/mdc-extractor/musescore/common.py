@@ -1,9 +1,12 @@
 from collections.abc import Iterable, Iterator, Sequence
 from functools import reduce
 from itertools import chain, islice
+from typing import Optional
+
+import numpy as np
 
 from features import Features
-from musescore.proto import Measure, Part, Staff
+from musescore.proto import Measure, Part, Staff, Note
 from utils.arr import find
 from utils.math import get_entropy
 
@@ -128,3 +131,8 @@ def get_vbox_text(staffs: list) -> dict[str, str]:
                 else:
                     dct[key] = [dct[key], text.text]
     return dct
+
+def get_average_pitch_from_iterator(notes: Iterator[Note]) -> Optional[float]:
+    arr = np.fromiter((n.pitch for n in notes), int)
+    if len(arr) != 0:
+        return arr.mean()

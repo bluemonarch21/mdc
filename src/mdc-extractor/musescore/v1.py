@@ -7,7 +7,7 @@ import numpy as np
 from attr import define, evolve, field, frozen
 
 from features import Features, displacement_cost
-from musescore.common import get_features, get_vbox_text, is_piano
+from musescore.common import get_average_pitch_from_iterator, get_features, get_vbox_text, is_piano
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 from utils.arr import bisect
@@ -378,10 +378,8 @@ class Staff:
                     for note in child.notes:
                         yield note
 
-    def get_average_pitch(self) -> float:
-        arr = np.fromiter((n.pitch for n in self.notes), int)
-        if len(arr) != 0:
-            return arr.mean()
+    def get_average_pitch(self) -> Optional[float]:
+        return get_average_pitch_from_iterator(self.notes)
 
     def get_hand_displacement_rate(self) -> float:
         chords = list(self.chords)
