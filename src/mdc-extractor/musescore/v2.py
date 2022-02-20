@@ -20,7 +20,7 @@ from musescore.common import (
 )
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
-from utils.arr import bisect
+from utils.dict import append_value
 
 
 @define
@@ -58,7 +58,10 @@ class MuseScore:
     @property
     def meta_info(self) -> dict[str, str]:
         dct = get_vbox_text(self.score.staffs)
-        dct.update({tag.name: tag.text for tag in self.score.metaTags if tag.text})
+        # cannot just override because sometimes vbox text is better (actually most of the time)
+        for tag in self.score.metaTags:
+            if tag.text:
+                append_value(dct, tag.name, tag.text)
         return dct
 
 
