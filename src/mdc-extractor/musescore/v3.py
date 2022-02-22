@@ -122,7 +122,7 @@ class Score:
                                 if t.tick is None:
                                     t.tick = stroke_ticks[-1]
                             tempos_with_no_tick = []
-            assert not tempos_with_no_tick, tempos_with_no_tick
+            assert not tempos_with_no_tick, tempos_with_no_tick  # 5744283 I_Love_You_More_Than_You'll_Ever_Know.mscx ; 6071756 temp_94886.mscx
             tempos.sort(key=lambda t: t.tick)
         self.tempos = tempos
         self.tempo_ticks = [t.tick for t in tempos]
@@ -902,7 +902,7 @@ class Number:
 class Harmony:
     # Latches onto the next Rest/Chord
     # E7/A -> root,name,base = 18,7,17
-    root: int  # known values: 13-F,14-C, 15-G, 16-D, 17-A, 18-E, 19-B
+    root: Optional[int]  # known values: 13-F,14-C, 15-G, 16-D, 17-A, 18-E, 19-B; None: 6044650 temp_28009.mscx
     name: Optional[str]  # known values: "m", "7"
     base: Optional[int]  # known values: same as root
     play: Optional[bool]  # known values: "0"
@@ -911,7 +911,8 @@ class Harmony:
     def from_tag(cls, tag: bs4.element.Tag) -> "Harmony":
         assert tag.name == "Harmony"
 
-        root = int(tag.find("root", recursive=False).text)
+        root_tag = tag.find("root", recursive=False)
+        root = None if root_tag is None else int(root_tag.text)
         name_tag = tag.find("name", recursive=False)
         name = None if name_tag is None else name_tag.text
         base_tag = tag.find("base", recursive=False)
@@ -1151,7 +1152,7 @@ class Note:
     veloType: Optional[str]  # known values: "user"
     velocity: Optional[int]
     # TODO: Check fingering for v1/2
-    fingering: Optional[int]  # new? # known values: 1
+    fingering: Optional[str]  # v3 new? # known values: "1", "3\n2\n", "i"
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Note":
@@ -1179,7 +1180,7 @@ class Note:
         velocity_tag = tag.find("velocity", recursive=False)
         velocity = None if velocity_tag is None else int(velocity_tag.text)
         fingering_tag = tag.find("Fingering", recursive=False)
-        fingering = None if fingering_tag is None else int(fingering_tag.find("text", recursive=False).text)
+        fingering = None if fingering_tag is None else fingering_tag.text  # TODO: "3\n2\n" 5668402 InThePalaceLamentoso_True_11-11-19.mscx 3.01 ; "i" 6218261 BROUWER-Leo_ETUDES-SIMPLES.mscx 3.01 
         return cls(
             track=track,
             visible=visible,
