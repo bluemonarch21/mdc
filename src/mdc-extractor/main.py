@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
     print("done!")
     with open("_known_not_piano_values.txt", "w", encoding="utf-8") as f:
-        pprint(common._known_not_piano_values, file=f)
+        pprint(common._known_not_piano_values, stream=f)
 
     with open("mdc.csv", "w", encoding="utf-8", newline="") as f:
         write = csv.writer(f)

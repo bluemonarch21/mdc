@@ -95,6 +95,7 @@ _known_piano_values: set[str] = {
     "ピアノ",
     "keyboard.piano",
     "keyboard.harpsichord",
+    # "keyboard synthesizer",
 }
 _known_not_piano_values: set[str] = set()
 
