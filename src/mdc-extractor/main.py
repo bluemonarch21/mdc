@@ -1,6 +1,7 @@
 import csv
 from pathlib import Path
 from pprint import pprint
+from traceback import print_exc
 from typing import Any, Literal, Optional, Union
 from zipfile import ZipFile
 
@@ -129,7 +130,7 @@ def open_and_extract(
             return None, None
         if throw == "ask":
             if ask_yes_no("continue?"):
-                print(Fore.RED + str(e) + Style.RESET_ALL)
+                print_exc()
                 input("Enter to continue...")
                 return None, None
         print(openfile.read())
