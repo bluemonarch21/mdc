@@ -143,7 +143,7 @@ if __name__ == "__main__":
         sorted((REPO / "assets/musescore").glob("*.zip"), key=lambda a: int(a.stem))
     )
     for zfp in zip_filepaths:
-        _, data = open_and_extract(zfp, throw=True)
+        _, data = open_and_extract(zfp, throw="ask")
         if data is not None:
             rows.append(data)
 
