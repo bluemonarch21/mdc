@@ -1,10 +1,8 @@
-from typing import ClassVar, Optional, Union
+from typing import Union
 
-import bs4.element
-from attrs import define
 from bs4 import BeautifulSoup
 
-from musescore import v1, v2
+from musescore import v1, v2, v3
 
 
 def newMuseScore(soup: BeautifulSoup) -> Union[v1.MuseScore, v2.MuseScore, None]:
@@ -14,8 +12,9 @@ def newMuseScore(soup: BeautifulSoup) -> Union[v1.MuseScore, v2.MuseScore, None]
         return v1.MuseScore.from_tag(museScore_tag)
     elif version in v2.MuseScore.known_versions:
         return v2.MuseScore.from_tag(museScore_tag)
-    else:
-        return None
+    elif version in v3.MuseScore.known_versions:
+        return v3.MuseScore.from_tag(museScore_tag)
+    return None
 
 
 # @define
