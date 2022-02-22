@@ -1,5 +1,6 @@
 import csv
 from pathlib import Path
+from pprint import pprint
 from typing import Any, Literal, Optional, Union
 from zipfile import ZipFile
 
@@ -8,7 +9,7 @@ from colorama import Fore, Style, init
 
 from constants import REPO
 from features import Features
-from musescore import v1, v2
+from musescore import common
 from musescore.next import newMuseScore
 
 __all__ = ["open_and_extract"]
@@ -146,8 +147,8 @@ if __name__ == "__main__":
             rows.append(data)
 
     print("done!")
-    # print("v1 not piano names", v1.Part.known_not_piano_values)
-    # print("v2 not piano names", v2.Part.known_not_piano_values)
+    with open("_known_not_piano_values.txt", "w", encoding="utf-8") as f:
+        pprint(common._known_not_piano_values, file=f)
 
     with open("mdc.csv", "w", encoding="utf-8", newline="") as f:
         write = csv.writer(f)

@@ -782,15 +782,23 @@ class Harmony:  # TODO: Find sample in v2
     # Latches onto the next Rest/Chord
     # E7/A -> root,name,base = 18,7,17
     root: int  # known values: 13-F,14-C, 15-G, 16-D, 17-A, 18-E, 19-B
-    name: str  # known values: "m", "7"
-    base: int  # known values: same as root
-    play: bool  # known values: "0"
+    name: Optional[str]  # known values: "m", "7", "6"
+    base: Optional[int]  # known values: same as root
+    play: Optional[bool]  # known values: "0"
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Harmony":
         assert tag.name == "Harmony"
-        raise NotImplementedError(f"{tag}")
-        return cls()
+
+        root = int(tag.find("root", recursive=False).text)
+        name_tag = tag.find("name", recursive=False)
+        name = None if name_tag is None else name_tag.text
+        base_tag = tag.find("base", recursive=False)
+        base = None if base_tag is None else int(base_tag.text)
+        play_tag = tag.find("play", recursive=False)
+        play = None if play_tag is None else bool(int(play_tag.text))
+        
+        return cls(root=root, name=name, base=base, play=play)
 
 
 @define
