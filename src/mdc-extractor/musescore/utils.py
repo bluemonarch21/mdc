@@ -30,6 +30,7 @@ def get_dots_factor(dots: int) -> float:
 
 
 _duration_type_pulsation = {
+    "breve": 8,
     "whole": 4,
     "half": 2,
     "quarter": 1,
