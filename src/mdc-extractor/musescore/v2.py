@@ -471,7 +471,7 @@ class Measure:
                     strokes.append(child)
                     stroke_ticks.append(stroke_tick)
         if not strokes:
-            raise AssertionError("Measure must have at least one Rest or Chord")
+            raise AssertionError("Measure must have at least one Rest or Chord")  # TODO: Debug 5062047 temp_25551.mscx 2.06 
         self._strokes = strokes
         self._stroke_ticks = stroke_ticks
 
