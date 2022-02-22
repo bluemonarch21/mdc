@@ -2,9 +2,9 @@
 import argparse
 import datetime
 import io
+import zipfile
 from itertools import islice
 from pathlib import Path
-from zipfile import ZipFile
 
 import requests
 
@@ -55,7 +55,11 @@ def main(
                 logger.log(f"{id} skipped {res.status_code}\n")
                 continue
             # Read ZipFile to check contents
-            zf = ZipFile(io.BytesIO(res.content))
+            try:
+                zf = zipfile.ZipFile(io.BytesIO(res.content))
+            except zipfile.BadZipfile:
+                logger.log(f"{id} skipped {res.status_code} BadZipfile\n")
+                continue
             if not list(filter(lambda n: n.endswith(".mscx"), zf.namelist())):
                 logger.log(f"{id} skipped {res.status_code} {zf.namelist()}\n")
                 continue
