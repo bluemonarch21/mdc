@@ -137,7 +137,9 @@ def open_and_extract(
 
 if __name__ == "__main__":
     rows = []
-    zip_filepaths = list(sorted((REPO / "assets/musescore").glob("*.zip"), key=lambda a: int(a.stem)))
+    zip_filepaths = list(
+        sorted((REPO / "assets/musescore").glob("*.zip"), key=lambda a: int(a.stem))
+    )
     for zfp in zip_filepaths:
         _, data = open_and_extract(zfp, throw=True)
         if data is not None:

@@ -7,17 +7,9 @@ import numpy as np
 from attr import define, evolve, field
 
 from features import Features
-from musescore.common import (
-    get_average_pitch_from_np_array,
-    get_chords_for_each_tempo,
-    get_features,
-    get_hand_displacement_rate_from_list,
-    get_playing_speed,
-    get_polyphony_rate,
-    get_staffs_from_piano_parts_id,
-    get_vbox_text,
-    is_piano,
-)
+from musescore.common import (get_average_pitch_from_np_array, get_chords_for_each_tempo, get_features,
+                              get_hand_displacement_rate_from_list, get_playing_speed, get_polyphony_rate,
+                              get_staffs_from_piano_parts_id, get_vbox_text, is_piano)
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
 from utils.dict import append_value
@@ -393,9 +385,7 @@ class Measure:
             elif child.name == "StaffText":
                 inst.children.append(StaffText.from_tag(child))
             elif child.name == "Harmony":
-                # TODO: Log v1 Harmony sample
-                # TODO: maybe parse Harmony
-                pass
+                inst.children.append(Harmony.from_tag(child))
             elif child.name in ["Beam", "LayoutBreak", "BarLine"]:
                 # TODO: log skipped tag
                 continue
@@ -419,6 +409,9 @@ class Measure:
     def tick_length(self) -> int:
         if self._tick_length is None:
             self._compute_ticks()
+        if self.len is not None:
+            nominator, denominator = map(int, self.len.split("/"))
+            return get_tick_length(get_duration_type(denominator)) * nominator
         return self._tick_length
 
     def _compute_ticks(self) -> None:
@@ -429,7 +422,8 @@ class Measure:
         if self.timeSig is not None:
             tick_length = self.timeSig.measure_tick_length
         else:
-            tick_length = self.previous.tick_length
+            # use nominal tick length
+            tick_length = self.previous._tick_length
         self._tick = tick
         self._tick_length = tick_length
 
@@ -446,7 +440,6 @@ class Measure:
                     this_tick = None
                 else:
                     stroke_tick = stroke_ticks[-1] + child.tick_length if stroke_ticks else self.tick
-                # TODO: Handle differently in v2, v3  # voice?
                 if stroke_tick in stroke_ticks:  # old stroke, new voice
                     idx = stroke_ticks.index(stroke_tick)
                     old_stroke = strokes[idx]

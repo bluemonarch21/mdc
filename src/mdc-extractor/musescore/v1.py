@@ -7,19 +7,11 @@ import numpy as np
 from attr import define, evolve, field, frozen
 
 from features import Features
-from musescore.common import (
-    get_average_pitch_from_np_array,
-    get_chords_for_each_tempo,
-    get_features,
-    get_hand_displacement_rate_from_list,
-    get_playing_speed,
-    get_polyphony_rate,
-    get_vbox_text,
-    is_piano,
-)
+from musescore.common import (get_average_pitch_from_np_array, get_chords_for_each_tempo, get_features,
+                              get_hand_displacement_rate_from_list, get_playing_speed, get_polyphony_rate,
+                              get_vbox_text, is_piano)
 from musescore.proto import note_possible_tags
 from musescore.utils import get_bpm, get_duration_type, get_pulsation, get_tick_length, tick_length_to_pulsation
-from utils.arr import bisect
 
 
 @define
