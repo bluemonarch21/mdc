@@ -656,7 +656,7 @@ class TimeSig:
     # tick: Optional[int]  # known values:
     sigN: int  # known values: 4, 3, 2
     sigD: int  # known values: 4, 4, 4
-    # showCourtesySig: bool  # known values:
+    showCourtesySig: Optional[bool]  # known values: 0
 
     # TODO: Find Actual / Nominal example?
 
@@ -670,10 +670,13 @@ class TimeSig:
         subtype = None if subtype_tag is None else int(subtype_tag.text)
         sigN = int(tag.find("sigN", recursive=False).text)
         sigD = int(tag.find("sigD", recursive=False).text)
+        showCourtesySig_tag = tag.find("showCourtesySig")
+        showCourtesySig = None if showCourtesySig_tag is None else bool(int(showCourtesySig_tag.text))
         return cls(
             subtype=subtype,
             sigN=sigN,
             sigD=sigD,
+            showCourtesySig=showCourtesySig,
         )
 
     @property
@@ -740,7 +743,7 @@ class Tempo:
 class Dynamic:
     # apply to the next Chord, unless tick is specified (compare ticks to see which is applied?)
 
-    style: Optional[int]  # known values: 12  # font size?
+    style: Optional[str]  # known values: Default
     subtype: str  # known values: "pp", "p", "sf", "f"
     velocity: Optional[int]
     track: Optional[int]
@@ -754,7 +757,7 @@ class Dynamic:
         assert tag.name == "Dynamic"
         note_possible_tags(cls, tag)
         style_tag = tag.find("style", recursive=False)
-        style = None if style_tag is None else int(style_tag.text)
+        style = None if style_tag is None else style_tag.text
         subtype = tag.find("subtype", recursive=False).text
         velocity_tag = tag.find("velocity", recursive=False)
         velocity = None if velocity_tag is None else int(velocity_tag.text)

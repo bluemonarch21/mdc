@@ -623,7 +623,7 @@ class Tempo:
 class Dynamic:
     # apply to the next Chord, unless tick is specified (compare ticks to see which is applied?)
 
-    # style: int  # known values: 12  # font size?
+    style: Optional[str]  # known values: Default
     subtype: str  # known values: "pp", "p", "sf", "f"
     velocity: Optional[int]
     track: Optional[int]
@@ -636,7 +636,8 @@ class Dynamic:
     def from_tag(cls, tag: bs4.element.Tag) -> "Dynamic":
         assert tag.name == "Dynamic"
         note_possible_tags(cls, tag)
-        # style = int(tag.find("style", recursive=False).text)
+        style_tag = tag.find("style", recursive=False)
+        style = None if style_tag is None else style_tag.text
         subtype = tag.find("subtype", recursive=False).text
         velocity_tag = tag.find("velocity", recursive=False)
         velocity = None if velocity_tag is None else int(velocity_tag.text)
@@ -648,7 +649,7 @@ class Dynamic:
         html_text = None if html_data_tag is None else html_data_tag.find("body").get_text(strip=True)
         text_tag = tag.find("text", recursive=False)
         text = html_text if text_tag is None else text_tag.text
-        return cls(subtype=subtype, velocity=velocity, track=track, text=text)
+        return cls(style=style, subtype=subtype, velocity=velocity, track=track, text=text)
 
 
 @define
