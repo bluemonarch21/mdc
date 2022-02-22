@@ -132,6 +132,7 @@ def open_and_extract(
                 print(Fore.RED + str(e) + Style.RESET_ALL)
                 input("Enter to continue...")
                 return None, None
+        print(openfile.read())
         raise
     return None, None
 
