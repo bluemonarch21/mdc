@@ -20,11 +20,14 @@ init()
 
 def ask_yes_no(prompt: str) -> bool:
     while True:
-        ans = input(f"{prompt} (y/N): ")
-        if ans == "y":
-            return True
-        if ans == "N":
-            return False
+        try:
+            ans = input(f"{prompt} (y/N): ")
+            if ans == "y":
+                return True
+            if ans == "N":
+                return False
+        except KeyboardInterrupt:
+            pass
 
 
 headers = [

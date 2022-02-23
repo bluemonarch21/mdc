@@ -660,7 +660,7 @@ class TimeSig:
 
     # TODO: Find Actual / Nominal example?
 
-    possible_tags: ClassVar[list[str]] = ["tick", "showCourtesySig", "lid"]
+    possible_tags: ClassVar[list[str]] = ["tick", "lid"]
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "TimeSig":
@@ -1152,7 +1152,7 @@ class Note:
     veloType: Optional[str]  # known values: "user"
     velocity: Optional[int]
     # TODO: Check fingering for v1/2
-    fingering: Optional[str]  # v3 new? # known values: "1", "3\n2\n", "i"
+    fingering: Optional[str]  # v3 new? # known values: "1", "3\n2\n", "i", "2/3"
 
     @classmethod
     def from_tag(cls, tag: bs4.element.Tag) -> "Note":
@@ -1180,7 +1180,7 @@ class Note:
         velocity_tag = tag.find("velocity", recursive=False)
         velocity = None if velocity_tag is None else int(velocity_tag.text)
         fingering_tag = tag.find("Fingering", recursive=False)
-        fingering = None if fingering_tag is None else fingering_tag.text  # TODO: "3\n2\n" 5668402 InThePalaceLamentoso_True_11-11-19.mscx 3.01 ; "i" 6218261 BROUWER-Leo_ETUDES-SIMPLES.mscx 3.01 
+        fingering = None if fingering_tag is None else fingering_tag.text
         return cls(
             track=track,
             visible=visible,
