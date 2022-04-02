@@ -3,10 +3,9 @@ from itertools import chain, cycle
 from typing import ClassVar, Optional, Union
 
 import bs4.element
-import numpy as np
 from attr import define, evolve, field, frozen
 
-from features import Features
+from musescore.features import Features
 from musescore.common import (get_average_pitch_from_np_array, get_chords_for_each_tempo, get_features,
                               get_hand_displacement_rate_from_list, get_playing_speed, get_polyphony_rate,
                               get_vbox_text, is_piano)

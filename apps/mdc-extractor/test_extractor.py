@@ -3,7 +3,7 @@ import sys
 import unittest
 
 from constants import REPO
-from features import Features
+from musescore.features import Features
 from main import open_and_extract
 
 expected_output = [

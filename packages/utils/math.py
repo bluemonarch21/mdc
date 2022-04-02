@@ -14,7 +14,7 @@ def round_to_significant(x: float, n: int) -> float:
         0
     """
     if x is None:
-        return None
+        return None  # musescore returns None for some features.
     if x == 0:
         return 0
     if math.isnan(x):

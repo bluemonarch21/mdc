@@ -6,8 +6,8 @@ from typing import Optional
 
 import numpy as np
 
-from features import Features, displacement_cost
-from musescore.proto import Chord, Measure, Note, Part, Rest, Staff, Tempo
+from musescore.features import Features, displacement_cost
+from musescore.proto import Chord, Measure, Note, Part, Staff, Tempo
 from musescore.utils import get_pulsation
 from utils.arr import find
 from utils.math import get_entropy

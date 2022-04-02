@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from colorama import Fore, Style, init
 
 from constants import REPO
-from features import Features
+from musescore.features import Features
 from musescore import common
 from musescore.next import newMuseScore
 

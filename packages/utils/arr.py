@@ -15,6 +15,9 @@ def bisect(arr: Sequence[T], e: T) -> tuple[int, int]:
     Reference:
         https://github.com/d3/d3-array#bisect
 
+    Note:
+        Try using https://docs.python.org/3/library/bisect.html first.
+
     Example:
         >>> bisect([1, 3, 5, 5, 10], 5)
         (2, 4)
