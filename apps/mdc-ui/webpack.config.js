@@ -34,12 +34,8 @@ const config = {
       },
       {
         test: /\.s[ac]ss$/i,
-        exclude: /\.module.(s(a|c)ss)$/,
-        use: [
-          'style-loader',
-          'css-loader',
-          'sass-loader',
-        ],
+        exclude: /\.module.(s[ac]ss)$/,
+        use: ['style-loader', 'css-loader', 'sass-loader'],
       },
       {
         test: /\.(svg)(\?.*)?$/,
