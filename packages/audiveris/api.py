@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import logging
+import os
 import pathlib
 import subprocess
 import time
@@ -16,7 +17,8 @@ logging.basicConfig(filename=f"audiveris.export.{time.strftime('%m-%d.%H-%M-%S')
 
 @functools.cache
 def get_classpath(app_home: str):
-    return f'"{pathlib.Path(app_home).resolve() / "lib/*"}"'
+    return str(pathlib.Path(app_home).resolve() / "lib/*")
+
 
 
 def get_cmd(args: typing.Iterable[str]) -> str:
@@ -87,39 +89,40 @@ class Audiveris:
     def export_mxl_cmd(self, input_files: list[str]) -> str:
         return get_cmd(self.export_mxl_args(input_files))
 
-    @staticmethod
-    def process_export_mxl_output(stdout: bytes):
-        try:
-            s = stdout.decode(encoding='utf-16')
-        except UnicodeDecodeError:
-            encoding = chardet.detect(stdout)
-            logging.warning(f"detected encoding '{encoding}'")
-            try:
-                s = stdout.decode(encoding=encoding)
-            except UnicodeDecodeError:
-                raise
-        filenames = [pathlib.Path(file).stem for file in input_files]
-        # output = {filename: 1 for filename in filenames}  # TODO: check from Audiveris logs
-        for line in s.splitlines():
-            # WARN  []                      Main 382  | Exception on 0000, java.lang.RuntimeException: Could not find file "D:\data\MDC\henle\0001\w1500\0000.jpg"
-            if line.startswith(f"WARN"):
-                for filename in filenames:
-                    if f"[{filename}]" in line:
-                        logging.warning(line)
-                        print(line)
-                        break
-                else:
-                    logging.error(line)
-                    print(line)
-            elif line.startswith(f"ERROR") or line.startswith(f"FATAL"):
-                logging.error(line)
-                print(line)
-        # return output
+    # @staticmethod
+    # def process_export_mxl_output(stdout: bytes):
+    #     try:
+    #         s = stdout.decode(encoding='utf-16')
+    #     except UnicodeDecodeError:
+    #         encoding = chardet.detect(stdout)
+    #         logging.warning(f"detected encoding '{encoding}'")
+    #         try:
+    #             s = stdout.decode(encoding=encoding)
+    #         except UnicodeDecodeError:
+    #             raise
+    #     # filenames = [pathlib.Path(file).stem for file in input_files]
+    #     # output = {filename: 1 for filename in filenames}  # TODO: check from Audiveris logs
+    #     for line in s.splitlines():
+    #         # WARN  []                      Main 382  | Exception on 0000, java.lang.RuntimeException: Could not find file "D:\data\MDC\henle\0001\w1500\0000.jpg"
+    #         if line.startswith(f"WARN"):
+    #             for filename in filenames:
+    #                 if f"[{filename}]" in line:
+    #                     logging.warning(line)
+    #                     print(line)
+    #                     break
+    #             else:
+    #                 logging.error(line)
+    #                 print(line)
+    #         elif line.startswith(f"ERROR") or line.startswith(f"FATAL"):
+    #             logging.error(line)
+    #             print(line)
+    #     # return output
 
 
-async def run(cmd: str):
-    proc = await asyncio.create_subprocess_shell(
-        cmd,
+async def run(program, *args):
+    proc = await asyncio.create_subprocess_exec(
+        program,
+        *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await proc.communicate()
@@ -154,11 +157,12 @@ def process_staffs(app_home: str, output_dir: str, data_dir: pathlib.Path, *, lo
 
 async def export_mxl_worker(name: int, queue: asyncio.Queue, result: asyncio.Queue):
     while True:
-        hn, i, batch, cmd = await queue.get()
+        hn, i, batch, args = await queue.get()
 
-        print(f"DEBUG\t\t[{name}] HN {hn} batch #{i} starting...\t\t\ttime is {time.asctime()}")
+        print(f"INFO\t\t[{name}] HN {hn} batch #{i} starting...\t\t\ttime is {time.asctime()}")
+        # print(f"DEBUG\t\t[{name}] HN {hn} batch #{i} {args}")
         start_time = time.time_ns()
-        proc, stdout, stderr = await run(cmd)
+        proc, stdout, stderr = await run(*args)
         elapsed = time.time_ns() - start_time
         result.put_nowait((hn, i, batch, proc.returncode))
         if proc.returncode == 0:
@@ -167,8 +171,9 @@ async def export_mxl_worker(name: int, queue: asyncio.Queue, result: asyncio.Que
                   f"({elapsed // (10 ** 9) // 60} minutes {elapsed // (10 ** 9) % 60} seconds) [{elapsed / len(batch) // (10 ** 9)} seconds per file]")
         else:
             print(f"ERROR\t\t[{name}] HN {hn} batch #{i} ({','.join(map(str, batch))})")
-            logging.error(cmd)
+            logging.error(args)
             logging.error(stderr.decode())
+            # logging.error(stdout.decode())
 
         queue.task_done()
 
@@ -196,7 +201,7 @@ async def export_mxl_result_worker(result: asyncio.Queue, *, data_dir: pathlib.P
         result.task_done()
 
 
-async def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, batch_size: int = 10, num_workers: int = 8, max_qsize: int = 1000):
+async def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, batch_size: int = 10, num_workers: int = 4, max_qsize: int = 4, load: bool = True, use_omr: bool = True):
     df_staff = pd.read_csv(data_dir / "henle-images-no-staff.csv")
     try:
         df_exported = pd.read_csv(data_dir / "henle-images-exported.csv")
@@ -211,28 +216,39 @@ async def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, 
     for i in range(num_workers):
         task = asyncio.create_task(export_mxl_worker(i + 1, queue, result))
         worker_tasks.append(task)
-    record_task = asyncio.create_task(export_mxl_result_worker(result, data_dir=None)) # Change me
+    record_task = asyncio.create_task(export_mxl_result_worker(result, data_dir=data_dir if load else None))
 
-    for hn_path in (data_dir / "henle").glob("*"):
-        hn = hn_path.stem
-        audiveris = Audiveris(app_home=app_home, output_dir=f"{output_dir}\\{hn:0>4}")
+    try:
+        for hn_path in (data_dir / "henle").glob("*"):
+            hn = hn_path.stem
+            audiveris = Audiveris(app_home=app_home, output_dir=f"{output_dir}\\{hn:0>4}")
 
-        x = df.loc[int(hn)]
-        for i, batch in enumerate(iterutils.batch(x[(x['has_staff'] == 1) & (x['exported'] != 1)].index, batch_size)):
-            input_files = [f"{output_dir}\\{hn:0>4}\\{page:0>4}\\{page:0>4}.omr" for page in batch]
-            cmd = audiveris.export_mxl_cmd(input_files=input_files)
-            queue.put_nowait((hn, i + 1, batch, cmd))
-            # print(f"DEBUG\t\t[] HN {hn} batch #{i} ({','.join(map(str, batch))}) added to queue")
-            while queue.qsize() > max_qsize:  # wait if qsize is too big
-                print(f"DEBUG\t\t[] sleeping... ({queue.qsize()} items in queue)\t\ttime is {time.asctime()}")
-                await asyncio.sleep(30)
-
-    await queue.join()
-    for task in worker_tasks:
-        task.cancel()
-    await result.join()
-    record_task.cancel()
-    await asyncio.gather(*worker_tasks, record_task, return_exceptions=True)
+            x = df.loc[int(hn)]
+            for i, batch in enumerate(iterutils.batch(x[(x['has_staff'] == 1) & (x['exported'] != 1)].index, batch_size)):
+                jpg_files = [f"{data_dir}\\henle\\{hn:0>4}\\w1500\\{page:0>4}.jpg" for page in batch]  # use jpg
+                omr_files = [f"{output_dir}\\{hn:0>4}\\{page:0>4}\\{page:0>4}.omr" for page in batch]  # use omr
+                if not use_omr:
+                    # Need to purge old files else Audiveris can bug and get stuck
+                    for f in omr_files:
+                        try:
+                            os.remove(f)
+                        except FileNotFoundError:
+                            pass
+                args = audiveris.export_mxl_args(input_files=jpg_files)
+                queue.put_nowait((hn, i + 1, batch, args))
+                # print(f"DEBUG\t\t[] HN {hn} batch #{i} ({','.join(map(str, batch))}) added to queue")
+                while queue.qsize() > max_qsize:  # wait if qsize is too big
+                    print(f"....\t\t[] sleeping... ({queue.qsize()} items in queue)\ttime is {time.asctime()}")
+                    await asyncio.sleep(60)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        await queue.join()
+        for task in worker_tasks:
+            task.cancel()
+        await result.join()
+        record_task.cancel()
+        await asyncio.gather(*worker_tasks, record_task, return_exceptions=True)
 
 
 if __name__ == '__main__':
@@ -241,4 +257,4 @@ if __name__ == '__main__':
     output_dir = "D:\\data\\MDC\\audiveris"
 
     # process_staffs(app_home, output_dir, data_dir)
-    asyncio.run(export_mxl(app_home, output_dir, data_dir))
+    asyncio.run(export_mxl(app_home, output_dir, data_dir, batch_size=5, num_workers=4, load=False, use_omr=False))
