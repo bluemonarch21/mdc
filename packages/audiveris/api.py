@@ -55,6 +55,7 @@ class Audiveris:
             # WARN  []                      Main 382  | Exception on 0000, java.lang.RuntimeException: Could not find file "D:\data\MDC\henle\0001\w1500\0000.jpg"
             # WARN  [0001]                 SheetStub 344  | 0001 Too large interline value: 396 pixels This sheet does not seem to contain staff lines.
             # WARN  [0016]                 SheetStub 344  | 0016 With an interline value of 7 pixels, either this sheet contains no staves, or the picture resolution is too low (try 300 DPI).
+            # WARN  [0167]                 SheetStub 344  | 0167 Too few staff filaments: 0 This sheet does not seem to contain staff lines.
             # WARN  [0176]                 SheetStub 344  | 0176 Too few black pixels: 0.0000% This sheet is almost blank.
             # WARN  [0060]              ScaleBuilder 276  | No reliable beam height found, guessed value: 8
             if line.startswith(f"WARN"):
@@ -63,6 +64,8 @@ class Audiveris:
                         if "Too large interline value" in line and "This sheet does not seem to contain staff lines." in line:
                             output[filename] = 0
                         elif "With an interline value of" in line and "either this sheet contains no staves, or the picture resolution is too low" in line:
+                            output[filename] = 0
+                        elif "Too few staff filaments" in line and "This sheet does not seem to contain staff lines." in line:
                             output[filename] = 0
                         elif "Too few black pixels" in line and "This sheet is almost blank." in line:
                             output[filename] = 0
@@ -286,7 +289,10 @@ def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, load: 
             print(f"INFO\t\t[] HN {hn} processed {len(pages):>3} pages, ??? exported"
                   f" ({elapsed // (10**9) // 60} minutes {elapsed // (10**9) % 60} seconds) [{seconds_per_page} seconds per file]")
         else:
-            print(f"ERROR\t\t[] HN {hn} (code: {proc.returncode}) {proc.stderr.decode(encoding='utf-8')}")
+            print(f"ERROR\t\t[] HN {hn} (code: {proc.returncode})")
+            print(proc.stderr.decode(encoding='utf-16'))
+            print(proc.stdout.decode(encoding='utf-16'))
+            logging.error(proc.stderr.decode(encoding='utf-16'))
 
         exported = 1 if proc.returncode == 0 else 0
         for page in pages:
