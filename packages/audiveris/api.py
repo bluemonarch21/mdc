@@ -160,7 +160,7 @@ async def export_mxl_worker(name: int, queue: asyncio.Queue, result: asyncio.Que
         hn, i, batch, args = await queue.get()
 
         print(f"INFO\t\t[{name}] HN {hn} batch #{i} starting...\t\t\ttime is {time.asctime()}")
-        # print(f"DEBUG\t\t[{name}] HN {hn} batch #{i} {args}")
+        # print(f"DEBUG\t\t[{name}] HN {hn} batch #{i} {to_cmd(args)}")
         start_time = time.time_ns()
         proc, stdout, stderr = await run(*args)
         elapsed = time.time_ns() - start_time
@@ -201,12 +201,13 @@ async def export_mxl_result_worker(result: asyncio.Queue, *, data_dir: pathlib.P
         result.task_done()
 
 
-async def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, batch_size: int = 10, num_workers: int = 4, max_qsize: int = 4, load: bool = True, use_omr: bool = True):
+async def export_mxl_async(app_home: str, output_dir: str, data_dir: pathlib.Path, *, batch_size: int = 10, num_workers: int = 4, max_qsize: int = 4, load: bool = True, use_omr: bool = True):
     df_staff = pd.read_csv(data_dir / "henle-images-no-staff.csv")
-    try:
+    if load:
         df_exported = pd.read_csv(data_dir / "henle-images-exported.csv")
-    except FileNotFoundError:
+    else:
         df_exported = pd.DataFrame([], columns=['hn', 'page', 'exported'])
+    # merge so we can just use one DataFrame filter
     df = df_staff.merge(df_exported, how='left', on=['hn', 'page']).set_index(['hn', 'page'])
 
     queue = asyncio.Queue()
@@ -218,37 +219,82 @@ async def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, 
         worker_tasks.append(task)
     record_task = asyncio.create_task(export_mxl_result_worker(result, data_dir=data_dir if load else None))
 
-    try:
-        for hn_path in (data_dir / "henle").glob("*"):
-            hn = hn_path.stem
-            audiveris = Audiveris(app_home=app_home, output_dir=f"{output_dir}\\{hn:0>4}")
+    for hn_path in (data_dir / "henle").glob("*"):
+        hn = hn_path.stem
+        audiveris = Audiveris(app_home=app_home, output_dir=f"{output_dir}\\{hn:0>4}")
 
-            x = df.loc[int(hn)]
-            for i, batch in enumerate(iterutils.batch(x[(x['has_staff'] == 1) & (x['exported'] != 1)].index, batch_size)):
-                jpg_files = [f"{data_dir}\\henle\\{hn:0>4}\\w1500\\{page:0>4}.jpg" for page in batch]  # use jpg
-                omr_files = [f"{output_dir}\\{hn:0>4}\\{page:0>4}\\{page:0>4}.omr" for page in batch]  # use omr
-                if not use_omr:
-                    # Need to purge old files else Audiveris can bug and get stuck
-                    for f in omr_files:
-                        try:
-                            os.remove(f)
-                        except FileNotFoundError:
-                            pass
-                args = audiveris.export_mxl_args(input_files=jpg_files)
-                queue.put_nowait((hn, i + 1, batch, args))
-                # print(f"DEBUG\t\t[] HN {hn} batch #{i} ({','.join(map(str, batch))}) added to queue")
-                while queue.qsize() > max_qsize:  # wait if qsize is too big
-                    print(f"....\t\t[] sleeping... ({queue.qsize()} items in queue)\ttime is {time.asctime()}")
-                    await asyncio.sleep(60)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        await queue.join()
-        for task in worker_tasks:
-            task.cancel()
-        await result.join()
-        record_task.cancel()
-        await asyncio.gather(*worker_tasks, record_task, return_exceptions=True)
+        x = df.loc[int(hn)]
+        for i, batch in enumerate(iterutils.batch(x[(x['has_staff'] == 1) & (x['exported'] != 1)].index, batch_size)):
+            jpg_files = [f"{data_dir}\\henle\\{hn:0>4}\\w1500\\{page:0>4}.jpg" for page in batch]  # use jpg
+            omr_files = [f"{output_dir}\\{hn:0>4}\\{page:0>4}\\{page:0>4}.omr" for page in batch]  # use omr
+            if not use_omr:
+                # Need to purge old files else Audiveris can bug and get stuck
+                for f in omr_files:
+                    try:
+                        os.remove(f)
+                    except FileNotFoundError:
+                        pass
+            args = audiveris.export_mxl_args(input_files=jpg_files)
+            queue.put_nowait((hn, i + 1, batch, args))
+            # print(f"DEBUG\t\t[] HN {hn} batch #{i} ({','.join(map(str, batch))}) added to queue")
+            while queue.qsize() >= max_qsize:  # wait if qsize is too big
+                print(f"....\t\t[] sleeping... ({queue.qsize()} items in queue)\t\ttime is {time.asctime()}")
+                await asyncio.sleep(60)
+    await queue.join()
+    for task in worker_tasks:
+        task.cancel()
+    await result.join()
+    record_task.cancel()
+    await asyncio.gather(*worker_tasks, record_task, return_exceptions=True)
+
+
+def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, load: bool = True, use_omr: bool = True):
+    seconds_per_page = None
+    df_staff = pd.read_csv(data_dir / "henle-images-no-staff.csv")
+    if load:
+        df_exported = pd.read_csv(data_dir / "henle-images-exported.csv")
+        df = df_staff.merge(df_exported, how='left', on=['hn', 'page']).set_index(['hn', 'page'])
+    else:
+        df_exported = pd.DataFrame([], columns=['hn', 'page', 'exported'])
+        df = df_staff.set_index(['hn', 'page'])
+
+    for hn_path in (data_dir / "henle").glob("*"):
+        hn = hn_path.stem
+        audiveris = Audiveris(app_home=app_home, output_dir=f"{output_dir}\\{hn:0>4}")
+
+        x: pd.DataFrame = df.loc[int(hn)]
+        if load:
+            pages = x[(x['has_staff'] == 1) & (x['exported'] != 1)].index
+        else:
+            pages = x[x['has_staff'] == 1].index
+
+        if use_omr:
+            omr_files = [f"{output_dir}\\{hn:0>4}\\{page:0>4}\\{page:0>4}.omr" for page in pages]  # use omr
+            args = audiveris.export_mxl_args(input_files=omr_files)
+        else:  # should run on new folder
+            jpg_files = [f"{data_dir}\\henle\\{hn:0>4}\\w1500\\{page:0>4}.jpg" for page in pages]  # use jpg
+            args = audiveris.export_mxl_args(input_files=jpg_files)
+
+        print(f"INFO\t\t[] HN {hn} starting... time is {time.asctime()} (ETA is {None if seconds_per_page is None else time.ctime(time.localtime() + seconds_per_page)})")
+        start_time = time.time_ns()
+        proc = subprocess.run(args, capture_output=True)
+        elapsed = time.time_ns() - start_time
+        seconds_per_page = elapsed / len(pages) // (10 ** 9)
+        if proc.returncode == 0:
+            # s = proc.stdout.decode(encoding='utf-16')
+            # TODO: do sth with stdout
+            print(f"INFO\t\t[] HN {hn} processed {len(pages):>3} pages, ??? exported"
+                  f" ({elapsed // (10**9) // 60} minutes {elapsed // (10**9) % 60} seconds) [{seconds_per_page} seconds per file]")
+        else:
+            print(f"ERROR\t\t[] HN {hn} (code: {proc.returncode}) {proc.stderr.decode(encoding='utf-8')}")
+
+        exported = 1 if proc.returncode == 0 else 0
+        for page in pages:
+            df_exported.loc[df.shape[0]] = {'hn': hn, 'page': page, 'exported': exported}
+        start_time = time.time_ns()
+        df.to_csv(data_dir / "henle-images-exported.csv", index=False)
+        elapsed = time.time_ns() - start_time
+        print(f"INFO\t\t[] HN {hn} saved to `henle-images-exported.csv` ({elapsed} nanoseconds)")
 
 
 if __name__ == '__main__':
@@ -257,4 +303,5 @@ if __name__ == '__main__':
     output_dir = "D:\\data\\MDC\\audiveris"
 
     # process_staffs(app_home, output_dir, data_dir)
-    asyncio.run(export_mxl(app_home, output_dir, data_dir, batch_size=5, num_workers=4, load=False, use_omr=False))
+    # asyncio.run(export_mxl_async(app_home, output_dir, data_dir, batch_size=5, num_workers=1, max_qsize=1, load=False, use_omr=False))
+    export_mxl(app_home, output_dir, data_dir, load=False, use_omr=False)
