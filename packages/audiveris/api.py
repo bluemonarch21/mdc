@@ -8,6 +8,7 @@ import time
 import typing
 
 import chardet
+import numpy as np
 import pandas as pd
 
 from utils import iter as iterutils
@@ -251,8 +252,8 @@ async def export_mxl_async(app_home: str, output_dir: str, data_dir: pathlib.Pat
     await asyncio.gather(*worker_tasks, record_task, return_exceptions=True)
 
 
-def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, load: bool = True, use_omr: bool = True):
-    seconds_per_page = None
+def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, load: bool = True, use_omr: bool = True, start_at: int = 1, end_at: int = float('inf')):
+    seconds_per_page = np.fromiter([], int)
     df_staff = pd.read_csv(data_dir / "henle-images-no-staff.csv")
     if load:
         df_exported = pd.read_csv(data_dir / "henle-images-exported.csv")
@@ -263,6 +264,8 @@ def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, load: 
 
     for hn_path in (data_dir / "henle").glob("*"):
         hn = hn_path.stem
+        if int(hn) < start_at or int(hn) > end_at:
+            continue
         audiveris = Audiveris(app_home=app_home, output_dir=f"{output_dir}\\{hn:0>4}")
 
         x: pd.DataFrame = df.loc[int(hn)]
@@ -271,6 +274,10 @@ def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, load: 
         else:
             pages = x[x['has_staff'] == 1].index
 
+        if len(pages) == 0:
+            print(f"ERROR\t\t[] HN {hn} has no notes pages, skipping")
+            continue
+
         if use_omr:
             omr_files = [f"{output_dir}\\{hn:0>4}\\{page:0>4}\\{page:0>4}.omr" for page in pages]  # use omr
             args = audiveris.export_mxl_args(input_files=omr_files)
@@ -278,21 +285,34 @@ def export_mxl(app_home: str, output_dir: str, data_dir: pathlib.Path, *, load: 
             jpg_files = [f"{data_dir}\\henle\\{hn:0>4}\\w1500\\{page:0>4}.jpg" for page in pages]  # use jpg
             args = audiveris.export_mxl_args(input_files=jpg_files)
 
-        print(f"INFO\t\t[] HN {hn} starting... time is {time.asctime()} (ETA is {None if seconds_per_page is None else time.ctime(time.localtime() + seconds_per_page)})")
+        print(f"INFO\t\t[] HN {hn} starting... time is {time.asctime()} (ETA is {'???' if seconds_per_page.size == 0 else time.ctime(time.time() + np.percentile(seconds_per_page, 70, overwrite_input=True))})")
         start_time = time.time_ns()
         proc = subprocess.run(args, capture_output=True)
         elapsed = time.time_ns() - start_time
-        seconds_per_page = elapsed / len(pages) // (10 ** 9)
+        seconds_per_page = np.append(seconds_per_page, elapsed / len(pages) // (10 ** 9))
         if proc.returncode == 0:
-            # s = proc.stdout.decode(encoding='utf-16')
+            # s = proc.stdout.decode(encoding=chardet.detect(proc.stdout).get('encoding') or 'windows-1252')
+            # INFO [0073]                 Book 1820 | Scores built: 3
+            # INFO [0073]      PartwiseBuilder 2172 | Exporting sheet(s): [#1]
+            # INFO [0073]        ScoreExporter 92   | Score 0073.mvt1 exported to D:\data\MDC\audiveris\1408\0073\0073.mvt1.mxl
+            # INFO [0073]      PartwiseBuilder 2172 | Exporting sheet(s): [#1]
+            # INFO [0073]        ScoreExporter 92   | Score 0073.mvt2 exported to D:\data\MDC\audiveris\1408\0073\0073.mvt2.mxl
+            # INFO [0073]      PartwiseBuilder 2172 | Exporting sheet(s): [#1]
+            # INFO [0073]        ScoreExporter 92   | Score 0073.mvt3 exported to D:\data\MDC\audiveris\1408\0073\0073.mvt3.mxl
+            # INFO [0073]                 Book 2056 | Stored /book.xml
+            # INFO [0073]                 Book 2002 | Book stored as D:\data\MDC\audiveris\1408\0073\0073.omr
             # TODO: do sth with stdout
             print(f"INFO\t\t[] HN {hn} processed {len(pages):>3} pages, ??? exported"
-                  f" ({elapsed // (10**9) // 60} minutes {elapsed // (10**9) % 60} seconds) [{seconds_per_page} seconds per file]")
+                  f" ({elapsed // (10**9) // 60} minutes {elapsed // (10**9) % 60} seconds) [{seconds_per_page[-1]} seconds per file]")
+            # print(s.replace('\n', '\\n'))
         else:
             print(f"ERROR\t\t[] HN {hn} (code: {proc.returncode})")
-            print(proc.stderr.decode(encoding='utf-16'))
-            print(proc.stdout.decode(encoding='utf-16'))
-            logging.error(proc.stderr.decode(encoding='utf-16'))
+            stdout = proc.stdout.decode(encoding=chardet.detect(proc.stdout).get('encoding') or 'windows-1252')
+            print(stdout)
+            logging.debug(stdout)
+            stderr = proc.stderr.decode(encoding=chardet.detect(proc.stderr).get('encoding') or 'utf-16')
+            print(stderr)
+            logging.error(stderr)
 
         exported = 1 if proc.returncode == 0 else 0
         for page in pages:
@@ -310,4 +330,5 @@ if __name__ == '__main__':
 
     # process_staffs(app_home, output_dir, data_dir)
     # asyncio.run(export_mxl_async(app_home, output_dir, data_dir, batch_size=5, num_workers=1, max_qsize=1, load=False, use_omr=False))
-    export_mxl(app_home, output_dir, data_dir, load=False, use_omr=False)
+    # export_mxl(app_home, output_dir, data_dir, load=False, use_omr=False, start_at=9423, end_at=9423)
+    # export_mxl(app_home, output_dir, data_dir, load=False, use_omr=False, start_at=1491)
