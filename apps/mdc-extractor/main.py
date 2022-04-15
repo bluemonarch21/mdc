@@ -1,4 +1,5 @@
 import csv
+import sys
 from pathlib import Path
 from pprint import pprint
 from traceback import print_exc
@@ -9,6 +10,7 @@ from bs4 import BeautifulSoup
 from colorama import Fore, Style, init
 
 from constants import REPO
+sys.path.append(str(REPO / "packages"))
 from musescore.features import Features
 from musescore import common
 from musescore.next import newMuseScore
