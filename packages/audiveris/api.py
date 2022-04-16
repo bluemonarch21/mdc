@@ -1,11 +1,15 @@
 import asyncio
+import difflib
 import functools
+import heapq
+import itertools
 import logging
 import os
 import pathlib
 import subprocess
 import time
 import typing
+import zipfile
 from copy import deepcopy
 
 import chardet
@@ -415,7 +419,7 @@ def save_compound_book(app_home: str, output_dir: str, *, start_at: int = 1, end
           f"average time: {np.mean(ns_per_page) // (10 ** 6)} ms per page")
 
 
-def export_book(app_home: str, *, start_at: int = 1, end_at: int = float('inf')):
+def export_book(app_home: str, output_dir: str, data_dir: pathlib.Path, *, start_at: int = 1, end_at: int = float('inf')):
     s_start_time = time.time_ns()
     df = pd.read_csv(data_dir / "henle-images-exported.csv")
     df_indexed = df[df["num_mxl"] == 1].set_index(["hn", "page"])
@@ -453,6 +457,162 @@ def export_book(app_home: str, *, start_at: int = 1, end_at: int = float('inf'))
           f"average time: {np.mean(ns_per_book) // (10 ** 9)} s per book")
 
 
+def _text_if_not_none(element: etree._Element, path) -> typing.Optional[str]:
+    e = element.find(path)
+    if e is not None:
+        return e.text
+
+
+def save_df_mxl(data_dir: pathlib.Path):
+    super_start_time = time.time_ns()
+    df = pd.read_csv(data_dir / "henle-images-exported.csv")
+    df_indexed = df[df["num_mxl"] == 1].set_index(["hn", "page"])
+
+    df = pd.DataFrame([], columns=['hn', 'filename', 'work_title', 'work_numer', 'mvt_pages', 'bad_zip_file',
+                                   'creator_composer', 'creator_lyricist', 'credit_', 'credit_composer', 'credit_lyricist'])
+    types = set()
+    for mxl_path in (data_dir / 'playlists').glob("*.mxl"):
+        start_time = time.time_ns()
+        print(f"{mxl_path.stem}.mxl", end='')
+        xml_filename = f"{mxl_path.stem}.xml"
+        hn = int(mxl_path.stem.split('.')[0])
+        pages = df_indexed.loc[hn].index
+        try:
+            zf = zipfile.ZipFile(mxl_path)
+        except zipfile.BadZipfile:
+            datum = {'hn': hn, 'filename': xml_filename, 'bad_zip_file': 1}
+            df.loc[df.shape[0]] = datum
+            print(f" BadZipFile ERROR")
+            continue
+        assert xml_filename in zf.namelist()
+        # for name in zf.namelist():
+        #     if name.startswith('META-INF'):
+        #         continue
+        #     if name.endswith('.xml'):
+        #         xml_filename = name
+        with zf.open(xml_filename) as f:
+            root: etree._Element = etree.fromstring(f.read())
+        work: etree._Element = root.find('work')
+        if work is not None:
+            work_title = _text_if_not_none(work, 'work-title')
+            work_number = _text_if_not_none(work, 'work-number')
+        else:
+            work_title = None
+            work_number = None
+        identification: etree._Element = root.find('identification')
+        mvt_pages = [pages[int(e.get('name').split('-')[-1]) - 1] for e in identification.find('miscellaneous')[1:]]
+        creator = dict()
+        for e in identification.iter('creator'):
+            type_ = e.get('type')
+            types.add(type_)
+            if type_ in creator:
+                creator[type_].append(e.text)
+            else:
+                creator[type_] = [e.text]
+        credit = dict()
+        for e in root.iter('credit'):
+            type_ = _text_if_not_none(e, 'credit-type')
+            types.add(type_)
+            e = e.find('credit-words')
+            if type_ is None:
+                type_ = ''
+            if type_ in credit:
+                credit[type_].append(e.text)
+            else:
+                credit[type_] = [e.text]
+        datum = {'hn': hn, 'filename': xml_filename, 'work_title': work_title, 'work_numer': work_number, 'mvt_pages': mvt_pages, 'bad_zip_file': 0}
+        for k, v in creator.items():
+            datum[f'creator_{k}'] = v
+        for k, v in credit.items():
+            datum[f'credit_{k}'] = v
+        df.loc[df.shape[0]] = datum
+        elapsed = time.time_ns() - start_time
+        print(f" ({elapsed // (10 ** 6) % 10 ** 3} ms)")
+
+    df.to_csv(data_dir / 'henle-mxl-info.csv', index=False)
+    df.to_pickle(str(data_dir / 'henle-mxl-info.pickle'))
+    # df.to_hdf(str(data_dir / 'henle-mxl-info.hd'), 'default')
+    elapsed = time.time_ns() - super_start_time
+    print(f"Done ({elapsed // (10 ** 9) // 60} min {elapsed // (10 ** 9) % 60} s)")
+    print(types)
+    return str(data_dir / 'henle-mxl-info.hd'), 'default'
+
+
+def get_close_matches_no_strip(word, possibilities, n=3, cutoff=0.6):
+    if not n > 0:
+        raise ValueError("n must be > 0: %r" % (n,))
+    if not 0.0 <= cutoff <= 1.0:
+        raise ValueError("cutoff must be in [0.0, 1.0]: %r" % (cutoff,))
+    result = []
+    s = difflib.SequenceMatcher()
+    s.set_seq2(word)
+    for x in possibilities:
+        s.set_seq1(x)
+        if s.real_quick_ratio() >= cutoff and \
+           s.quick_ratio() >= cutoff and \
+           s.ratio() >= cutoff:
+            result.append((s.ratio(), x))
+
+    # Move the best scorers to head of list
+    result = heapq.nlargest(n, result)
+    return result
+
+
+def process_mxl_info(data_dir: pathlib.Path):
+    df_books_headers = list(pd.read_csv(data_dir / "henle-books-header.csv").columns[:15]) + functools.reduce(
+        lambda a, b: a + b, ([
+            f'author{i + 1}.Name',
+            f'author{i + 1}.Role',
+            f'author{i + 1}.URL',
+        ] for i in range(9)))
+    df_books = pd.read_csv(data_dir / "henle-books.csv", names=df_books_headers, na_values='nil')
+    df_min = df_books[['detail.Section', 'detail.Title', 'detail.HenleDifficulty', 'book.Title', 'book.HN']]
+
+    df_mxl = pd.read_pickle(str(data_dir / "henle-mxl-info.pickle"))
+    def filename_to_mvt(s):
+        parts = s.split('.')
+        if len(parts) == 3: return int(parts[1][3:])
+        if len(parts) == 2: return 1
+        raise AssertionError()
+    df_mxl['mvt'] = df_mxl['filename'].map(filename_to_mvt)
+    df_mxl = df_mxl.sort_values(['hn', 'mvt'])
+
+    # df_indexed = df_min[df_min['detail.Section'] != 'I am the section'].set_index(['book.HN'])
+    # df_page = pd.DataFrame([], columns=['hn', 'title', '#', 'start', 'end', 'mvt1', 'mvt2', 'mvt3', 'mvt4'])
+
+    df1 = pd.DataFrame([], columns=['hn', 'num_works'])
+    df2 = pd.DataFrame([], columns=['hn', 'num_works'])
+    max_mvts = 0
+    for hn, df in df_mxl.groupby(['hn']):
+        # titles = df_indexed.loc[hn]['detail.Title'].tolist()
+
+        num_works = 0
+        num_mvts = 0
+        for _, series in df.iterrows():
+            if series['work_title'] is not None:
+                num_works += 1
+                # possibilities = list(itertools.chain([series['work_title'], series['work_numer']],
+                #                                 series['credit_'],
+                #                                 series['credit_composer'],
+                #                                 series['credit_lyricist']))
+                # for possible_title in possible_titles:
+                #     s = difflib.SequenceMatcher(None, possible_title, ' '.join(possibilities))
+                #     m: difflib.Match = s.find_longest_match()  # exact match
+                #     m.size
+                #     matches = get_close_matches_no_strip(possible_title, possibilities)  # ratio matches
+                max_mvts = max(num_mvts, max_mvts)
+                num_mvts = 1
+            else:
+                num_mvts += 1
+        df1.loc[df1.shape[0]] = {'hn': hn, 'num_works': num_works}
+
+    print(max_mvts)
+    for hn, df in df_min[df_min['detail.Section'] != 'I am the section'].groupby(['book.HN']):
+        num_works = len(df)
+        df2.loc[df2.shape[0]] = {'hn': hn, 'num_works': num_works}
+        # hn = next(df['book.HN'].items())[1]
+
+
 if __name__ == '__main__':
     app_home = "D:\\Program Files\\Audiveris"
     data_dir = pathlib.Path("D:\\data\\MDC")
@@ -465,4 +625,6 @@ if __name__ == '__main__':
     # export_mxl(app_home, output_dir, data_dir, use_omr=False, start_at=9423, end_at=9423)
     # export_mxl(app_home, output_dir, data_dir, use_omr=False, start_at=1491)
     # save_compound_book(app_home, output_dir, start_at=650)
-    # export_book(app_home, start_at=560)
+    # export_book(app_home, output_dir, data_dir, start_at=560)
+    # save_df_mxl(data_dir)
+    process_mxl_info(data_dir)
