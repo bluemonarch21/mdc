@@ -15,8 +15,6 @@ from lxml import etree
 
 from utils import iter as iterutils
 
-logging.basicConfig(filename=f"audiveris.export.{time.strftime('%m-%d.%H-%M-%S')}.log", level=logging.DEBUG)
-
 
 @functools.cache
 def get_classpath(app_home: str):
@@ -417,13 +415,54 @@ def save_compound_book(app_home: str, output_dir: str, *, start_at: int = 1, end
           f"average time: {np.mean(ns_per_page) // (10 ** 6)} ms per page")
 
 
+def export_book(app_home: str, *, start_at: int = 1, end_at: int = float('inf')):
+    s_start_time = time.time_ns()
+    df = pd.read_csv(data_dir / "henle-images-exported.csv")
+    df_indexed = df[df["num_mxl"] == 1].set_index(["hn", "page"])
+
+    ns_per_book = np.fromiter([], int)
+    for hn in df_indexed.groupby(['hn']).indices.keys():
+        if hn < start_at or hn > end_at:
+            continue
+        audiveris = Audiveris(app_home=app_home, output_dir=f"{data_dir}\\playlists")
+        omr_file = f"{data_dir}\\playlists\\{hn:0>4}.omr"
+
+        print(f"INFO\t\t[] HN {hn} starting... time is {time.asctime()} (ETA is {'???' if ns_per_book.size == 0 else time.ctime(time.time() + np.percentile(ns_per_book, 70, overwrite_input=True) / 10 ** 9)})")
+        start_time = time.time_ns()
+        args = audiveris.export_mxl_args(input_files=[omr_file])
+        proc = subprocess.run(args, timeout=20*60)
+        elapsed = time.time_ns() - start_time
+
+        ns_per_book = np.append(ns_per_book, elapsed)
+        if proc.returncode == 0:
+            s = (f"INFO\t\t[] HN {hn} processed, {len(list((pathlib.Path(data_dir)/'playlists').glob(f'{hn:0>4}.*.mxl'))):>3} exported"
+                 f" ({elapsed // (10**9) // 60} minutes {elapsed // (10**9) % 60} seconds)")
+            print(s)
+            logging.info(s)
+        else:
+            s = (f"ERROR\t\t[] HN {hn} (code: {proc.returncode})")
+            print(s)
+            logging.error(s)
+    elapsed = time.time_ns() - s_start_time
+    print(f"\n"
+          f"Tasked finished at {time.asctime()}\n"
+          f"elapsed: {elapsed // (10**9) // 60} minutes {elapsed // (10**9) % 60} seconds\n"
+          f"total books: {len(ns_per_book)}\n"
+          f"total time: {np.sum(ns_per_book) // 10**9} s\n"
+          f"median+ time: {np.percentile(ns_per_book, 60, overwrite_input=True) // (10 ** 9)} s per book\n"
+          f"average time: {np.mean(ns_per_book) // (10 ** 9)} s per book")
+
+
 if __name__ == '__main__':
     app_home = "D:\\Program Files\\Audiveris"
     data_dir = pathlib.Path("D:\\data\\MDC")
     output_dir = "D:\\data\\MDC\\audiveris"
+
+    logging.basicConfig(filename=f"audiveris.book.{time.strftime('%m-%d.%H-%M-%S')}.log", level=logging.DEBUG)
 
     # process_staffs(app_home, output_dir, data_dir)
     # asyncio.run(export_mxl_async(app_home, output_dir, data_dir, batch_size=5, num_workers=1, max_qsize=1, load=False, use_omr=False))
     # export_mxl(app_home, output_dir, data_dir, use_omr=False, start_at=9423, end_at=9423)
     # export_mxl(app_home, output_dir, data_dir, use_omr=False, start_at=1491)
     # save_compound_book(app_home, output_dir, start_at=650)
+    # export_book(app_home, start_at=560)
