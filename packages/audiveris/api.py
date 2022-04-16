@@ -577,40 +577,64 @@ def process_mxl_info(data_dir: pathlib.Path):
     df_mxl['mvt'] = df_mxl['filename'].map(filename_to_mvt)
     df_mxl = df_mxl.sort_values(['hn', 'mvt'])
 
-    # df_indexed = df_min[df_min['detail.Section'] != 'I am the section'].set_index(['book.HN'])
-    # df_page = pd.DataFrame([], columns=['hn', 'title', '#', 'start', 'end', 'mvt1', 'mvt2', 'mvt3', 'mvt4'])
+    df_indexed = df_min[df_min['detail.Section'] != 'I am the section'].set_index(['book.HN'])
+    df_page = pd.DataFrame([], columns=['hn', 'title', '#', 'start', 'end', 'mvt1', 'mvt2', 'mvt3', 'mvt4', 'mvtX'])
 
-    df1 = pd.DataFrame([], columns=['hn', 'num_works'])
-    df2 = pd.DataFrame([], columns=['hn', 'num_works'])
-    max_mvts = 0
     for hn, df in df_mxl.groupby(['hn']):
-        # titles = df_indexed.loc[hn]['detail.Title'].tolist()
+        try:
+            x = df_indexed.loc[hn]
+        except KeyError:
+            print('No henle-books data for HN', hn)
+            continue
+        try:
+            titles: list = x['detail.Title'].tolist()
+        except AttributeError:
+            # only 1 row of data for hn
+            title = x['detail.Title']
+            assert isinstance(title, str)
+            titles = [title]
 
         num_works = 0
         num_mvts = 0
+        datum = None
         for _, series in df.iterrows():
-            if series['work_title'] is not None:
+            if series['bad_zip_file'] == 1:
+                continue
+            if series['work_title'] is not None or num_mvts == 0:
                 num_works += 1
-                # possibilities = list(itertools.chain([series['work_title'], series['work_numer']],
-                #                                 series['credit_'],
-                #                                 series['credit_composer'],
-                #                                 series['credit_lyricist']))
-                # for possible_title in possible_titles:
-                #     s = difflib.SequenceMatcher(None, possible_title, ' '.join(possibilities))
-                #     m: difflib.Match = s.find_longest_match()  # exact match
-                #     m.size
-                #     matches = get_close_matches_no_strip(possible_title, possibilities)  # ratio matches
-                max_mvts = max(num_mvts, max_mvts)
                 num_mvts = 1
+                if datum is not None:
+                    df_page.loc[df_page.shape[0]] = datum
+                try:
+                    title = titles.pop(0)
+                except IndexError:
+                    title = "ShouldNotExist"
+                datum = {
+                    'hn': hn,
+                    'title': title,
+                    '#': num_works,
+                    'start': series['mvt_pages'][0],  # min
+                    'end': series['mvt_pages'][-1],  # max
+                    'mvt1': series['filename'],
+                }
             else:
+                assert num_mvts > 0
                 num_mvts += 1
-        df1.loc[df1.shape[0]] = {'hn': hn, 'num_works': num_works}
+                datum['end'] = series['mvt_pages'][-1]  # max
+                datum[f'mvt{num_mvts}'] = series['filename']
+                if num_mvts > 4:
+                    datum[f'mvtX'] = series['filename']
+        if datum is not None:
+            df_page.loc[df_page.shape[0]] = datum
+        for title in titles:
+            num_works += 1
+            df_page.loc[df_page.shape[0]] = {
+                'hn': hn,
+                'title': title,
+                '#': num_works,
+            }
 
-    print(max_mvts)
-    for hn, df in df_min[df_min['detail.Section'] != 'I am the section'].groupby(['book.HN']):
-        num_works = len(df)
-        df2.loc[df2.shape[0]] = {'hn': hn, 'num_works': num_works}
-        # hn = next(df['book.HN'].items())[1]
+    df_page.to_csv(data_dir / "henle-mxl-manual.csv", index=False)
 
 
 if __name__ == '__main__':
