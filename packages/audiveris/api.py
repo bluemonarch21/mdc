@@ -642,7 +642,7 @@ if __name__ == '__main__':
     data_dir = pathlib.Path("D:\\data\\MDC")
     output_dir = "D:\\data\\MDC\\audiveris"
 
-    logging.basicConfig(filename=f"audiveris.book.{time.strftime('%m-%d.%H-%M-%S')}.log", level=logging.DEBUG)
+    # logging.basicConfig(filename=f"audiveris.book.{time.strftime('%m-%d.%H-%M-%S')}.log", level=logging.DEBUG)
 
     # process_staffs(app_home, output_dir, data_dir)
     # asyncio.run(export_mxl_async(app_home, output_dir, data_dir, batch_size=5, num_workers=1, max_qsize=1, load=False, use_omr=False))
@@ -651,4 +651,27 @@ if __name__ == '__main__':
     # save_compound_book(app_home, output_dir, start_at=650)
     # export_book(app_home, output_dir, data_dir, start_at=560)
     # save_df_mxl(data_dir)
-    process_mxl_info(data_dir)
+    # process_mxl_info(data_dir)
+    df_mxl = pd.read_pickle(data_dir / "henle-mxl-info.pickle")
+    def filename_to_mvt(s):
+        parts = s.split('.')
+        if len(parts) == 3: return int(parts[1][3:])
+        if len(parts) == 2: return 1
+        raise AssertionError()
+    df_mxl['mvt'] = df_mxl['filename'].map(filename_to_mvt)
+    df_mxl = df_mxl.sort_values(['hn', 'mvt'])
+    hns = [hn for hn, _ in df_mxl.groupby('hn')]
+    page = 0
+    while True:
+        print(df_mxl[df_mxl['hn'] == hns[page]][['hn', 'mvt', 'work_title', 'mvt_pages']])
+        ans = input('>? ')
+        if ans == 'q':
+            break
+        if ans == '':
+            page += 1
+            continue
+        if ans.startswith('s'):
+            page = int(ans.split(' ')[1])
+            continue
+        page -= 1
+        continue
