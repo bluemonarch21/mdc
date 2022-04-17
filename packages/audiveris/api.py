@@ -652,6 +652,7 @@ if __name__ == '__main__':
     # export_book(app_home, output_dir, data_dir, start_at=560)
     # save_df_mxl(data_dir)
     # process_mxl_info(data_dir)
+
     df_mxl = pd.read_pickle(data_dir / "henle-mxl-info.pickle")
     def filename_to_mvt(s):
         parts = s.split('.')
@@ -659,19 +660,37 @@ if __name__ == '__main__':
         if len(parts) == 2: return 1
         raise AssertionError()
     df_mxl['mvt'] = df_mxl['filename'].map(filename_to_mvt)
+    df_mxl['work_title'] = df_mxl['work_title'].map(lambda x: x if x is not None else "")
+    df_mxl['# pages'] = df_mxl['mvt_pages'].map(lambda x: len(x) if isinstance(x, list) else 0)
     df_mxl = df_mxl.sort_values(['hn', 'mvt'])
     hns = [hn for hn, _ in df_mxl.groupby('hn')]
     page = 0
+    mode = 0
+    # pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 300)
     while True:
-        print(df_mxl[df_mxl['hn'] == hns[page]][['hn', 'mvt', 'work_title', 'mvt_pages']])
+        if mode % 3 == 0:
+            print(df_mxl[df_mxl['hn'] == hns[page]][['work_title', 'mvt', 'mvt_pages', '# pages']])
+        elif mode % 3 == 1:
+            print(df_mxl[df_mxl['hn'] == hns[page]][['mvt', 'mvt_pages', '# pages']])
+        elif mode % 3 == 2:
+            print(df_mxl[df_mxl['hn'] == hns[page]][['work_title', 'mvt', 'work_numer']])
+        print('HN', hns[page])
         ans = input('>? ')
         if ans == 'q':
             break
         if ans == '':
             page += 1
             continue
-        if ans.startswith('s'):
+        if ans.startswith('si'):
             page = int(ans.split(' ')[1])
+            continue
+        if ans.startswith('s'):
+            page = hns.index(int(ans.split(' ')[1]))
+            continue
+        if ans == 't':
+            mode += 1
             continue
         page -= 1
         continue
