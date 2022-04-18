@@ -120,8 +120,8 @@ def batch_process(data_dir: pathlib.Path, *, batch_size: int = 8):
             # process batch
             print(">>> processing...")
             ds.process()
-            ds.write(str(data_dir / f"henle-music21-{batch_number}x{batch_size}.csv"))
-            print(f"Exported henle-music21-{batch_number}x{batch_size}.csv")
+            ds.write(str(data_dir / f"henle-music21-{batch_number}x{batch_size}.tab"))
+            print(f"Exported henle-music21-{batch_number}x{batch_size}.tab")
             dfi.to_csv(data_dir / "henle-music21-info.csv")
             print(dfi.shape)
             # new batch
@@ -133,8 +133,8 @@ def batch_process(data_dir: pathlib.Path, *, batch_size: int = 8):
         # process batch
         print(">>> processing...")
         ds.process()
-        ds.write(str(data_dir / f"henle-music21-{batch_number}x{batch_size}.csv"))
-        print(f"Exported henle-music21-{batch_number}x{batch_size}.csv")
+        ds.write(str(data_dir / f"henle-music21-{batch_number}x{batch_size}.tab"))
+        print(f"Exported henle-music21-{batch_number}x{batch_size}.tab")
         dfi.to_csv(data_dir / "henle-music21-info.csv", index=False)
         print(dfi.shape)
 
@@ -145,7 +145,7 @@ def merge_batches(data_dir: pathlib.Path, *, batch_size: int):
     for i in range(math.ceil(dfi.shape[0] / batch_size)):
         batch_number = i + 1
         print(batch_number)
-        df_dsi = pd.read_csv(data_dir / f"henle-music21-{batch_number}x{batch_size}.csv")
+        df_dsi = pd.read_csv(data_dir / f"henle-music21-{batch_number}x{batch_size}.tab")  # TODO: Check
         if df_ds is None:
             df_ds = df_dsi
         else:
