@@ -22,7 +22,7 @@ from utils import iter as iterutils
 
 if __name__ == '__main__':
     data_dir = pathlib.Path("D:\\data\\MDC")
-    limit = 1000
+    batch_size = 8
 
     df_books_headers = list(pd.read_csv(data_dir / "henle-books-header.csv").columns[:15]) + functools.reduce(
         lambda a, b: a + b, ([
@@ -43,11 +43,12 @@ if __name__ == '__main__':
     df_books['hn'] = df_books['book.HN']
 
     df = df_mxl_man.join(df_books.set_index(['hn', 'title']), on=['hn', 'title'], how='left')
-    print(df.columns)
+    del df_books
+    del df_mxl_man
+    # print(df.columns)
     print(df.shape)
     # print(df.loc[0])
 
-    # [<class 'music21.features.jSymbolic.InitialTimeSignatureFeature'>, <class 'music21.features.jSymbolic.CompoundOrSimpleMeterFeature'>, <class 'music21.features.jSymbolic.TripleMeterFeature'>, <class 'music21.features.jSymbolic.QuintupleMeterFeature'>, <class 'music21.features.jSymbolic.ChangesOfMeterFeature'>, <class 'music21.features.jSymbolic.MostCommonPitchPrevalenceFeature'>, <class 'music21.features.jSymbolic.MostCommonPitchClassPrevalenceFeature'>, <class 'music21.features.jSymbolic.RelativeStrengthOfTopPitchesFeature'>, <class 'music21.features.jSymbolic.RelativeStrengthOfTopPitchClassesFeature'>, <class 'music21.features.jSymbolic.IntervalBetweenStrongestPitchesFeature'>, <class 'music21.features.jSymbolic.IntervalBetweenStrongestPitchClassesFeature'>, <class 'music21.features.jSymbolic.NumberOfCommonPitchesFeature'>, <class 'music21.features.jSymbolic.PitchVarietyFeature'>, <class 'music21.features.jSymbolic.PitchClassVarietyFeature'>, <class 'music21.features.jSymbolic.RangeFeature'>, <class 'music21.features.jSymbolic.MostCommonPitchFeature'>, <class 'music21.features.jSymbolic.PrimaryRegisterFeature'>, <class 'music21.features.jSymbolic.ImportanceOfBassRegisterFeature'>, <class 'music21.features.jSymbolic.ImportanceOfMiddleRegisterFeature'>, <class 'music21.features.jSymbolic.ImportanceOfHighRegisterFeature'>, <class 'music21.features.jSymbolic.MostCommonPitchClassFeature'>, <class 'music21.features.jSymbolic.BasicPitchHistogramFeature'>, <class 'music21.features.jSymbolic.PitchClassDistributionFeature'>, <class 'music21.features.jSymbolic.FifthsPitchHistogramFeature'>]
     feature_extractors = features.extractorsById([
         'r31',  # music21.features.jSymbolic.InitialTimeSignatureFeature
         'r32',  # music21.features.jSymbolic.CompoundOrSimpleMeterFeature
@@ -74,24 +75,66 @@ if __name__ == '__main__':
         'p20',  # music21.features.jSymbolic.PitchClassDistributionFeature
         'p21',  # music21.features.jSymbolic.FifthsPitchHistogramFeature
     ])
-    ds = features.DataSet(classLabel='Composer')
-    ds.addFeatureExtractors(feature_extractors)
 
+    dfi = pd.DataFrame([], columns=['hn', 'title'])
+    # new batch
     count = 0
+    batch_number = 1
+    ds = features.DataSet(classLabel='ClassLabel')
+    ds.addFeatureExtractors(feature_extractors)
     for i, row in df.iterrows():
+        print(f'>>> {row["mvt1"][:-4]}')
         zfp = data_dir / "playlists" / row['mvt1']
         zfp = zfp.with_suffix('.mxl')
         # zf = zipfile.ZipFile(zfp)
         # assert row['mvt1'] in zf.namelist()
         # f = zf.open(row['mvt1'])
         # s = converter.parse(f.read())
-        s = converter.parse(str(zfp))
+        try:
+            s = converter.parse(str(zfp))
+        except Exception as e:
+            if isinstance(row['mvt2'], str) and row['mvt2']:
+                zfp = data_dir / "playlists" / row['mvt2']
+                zfp = zfp.with_suffix('.mxl')
+                try:
+                    s = converter.parse(str(zfp))
+                except Exception as e:
+                    if isinstance(row['mvt3'], str) and row['mvt3']:
+                        zfp = data_dir / "playlists" / row['mvt3']
+                        zfp = zfp.with_suffix('.mxl')
+                        try:
+                            s = converter.parse(str(zfp))
+                        except Exception as e:
+                            print(e)
+                            continue
+                    else:
+                        print(e)
+                        continue
+            else:
+                print(e)
+                continue
         ds.addData(s)
+        dfi.loc[dfi.shape[0]] = row
         count += 1
-        if count >= limit:
-            break
-
-    ds.process()
-    ds.write(str(data_dir / f"henle-music21.csv"))
-    print('exported CSV')
-    df.to_csv(data_dir / "henle-features-info.csv")
+        print(f'>>> {count}!')
+        if count >= batch_size:
+            # process batch
+            print(">>> processing...")
+            ds.process()
+            ds.write(str(data_dir / f"henle-music21-{batch_number}x{batch_size}.csv"))
+            print(f"Exported henle-music21-{batch_number}x{batch_size}.csv")
+            dfi.to_csv(data_dir / "henle-music21-info.csv")
+            print(dfi.shape)
+            # new batch
+            count = 0
+            batch_number += 1
+            ds = features.DataSet(classLabel='ClassLabel')
+            ds.addFeatureExtractors(feature_extractors)
+    if count > 0:
+        # process batch
+        print(">>> processing...")
+        ds.process()
+        ds.write(str(data_dir / f"henle-music21-{batch_number}x{batch_size}.csv"))
+        print(f"Exported henle-music21-{batch_number}x{batch_size}.csv")
+        dfi.to_csv(data_dir / "henle-music21-info.csv")
+        print(dfi.shape)
