@@ -4,6 +4,7 @@ import functools
 import heapq
 import itertools
 import logging
+import math
 import os
 import pathlib
 import subprocess
@@ -20,10 +21,8 @@ from music21 import converter, features
 
 from utils import iter as iterutils
 
-if __name__ == '__main__':
-    data_dir = pathlib.Path("D:\\data\\MDC")
-    batch_size = 8
 
+def batch_process(data_dir: pathlib.Path, *, batch_size: int = 8):
     df_books_headers = list(pd.read_csv(data_dir / "henle-books-header.csv").columns[:15]) + functools.reduce(
         lambda a, b: a + b, ([
             f'author{i + 1}.Name',
@@ -136,5 +135,28 @@ if __name__ == '__main__':
         ds.process()
         ds.write(str(data_dir / f"henle-music21-{batch_number}x{batch_size}.csv"))
         print(f"Exported henle-music21-{batch_number}x{batch_size}.csv")
-        dfi.to_csv(data_dir / "henle-music21-info.csv")
+        dfi.to_csv(data_dir / "henle-music21-info.csv", index=False)
         print(dfi.shape)
+
+
+def merge_batches(data_dir: pathlib.Path, *, batch_size: int):
+    dfi = pd.read_csv(data_dir / "henle-music21-info.csv")
+    df_ds = None
+    for i in range(math.ceil(dfi.shape[0] / batch_size)):
+        batch_number = i + 1
+        print(batch_number)
+        df_dsi = pd.read_csv(data_dir / f"henle-music21-{batch_number}x{batch_size}.csv")
+        if df_ds is None:
+            df_ds = df_dsi
+        else:
+            df_ds = pd.concat([df_ds, df_dsi], ignore_index=True, sort=False)
+
+    df = dfi.merge(df_ds, left_index=True, right_index=True)
+    print(df)
+    df.to_csv(data_dir / "henle-music21.csv", index=False)
+
+
+if __name__ == '__main__':
+    # data_dir = pathlib.Path("D:\\data\\MDC")
+    # batch_process(pathlib.Path("D:\\data\\MDC"), batch_size=8)
+    merge_batches(pathlib.Path("D:\\data\\MDC"), batch_size=8)
