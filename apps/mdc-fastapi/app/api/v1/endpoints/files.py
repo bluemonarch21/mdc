@@ -37,7 +37,10 @@ def read_upload(*, id: str):
     """
     Get an uploaded file by ID.
     """
-    fileinfo = utils.file.retrieve_by_id(id)
+    try:
+        fileinfo = utils.file.retrieve_by_id(id)
+    except FileNotFoundError:
+        return HTTPException(status_code=404)
     with fileinfo.filepath.open('rb') as f:
         data = f.read()
     return Response(content=data, media_type=utils.file.get_mime_type(fileinfo.filepath))
