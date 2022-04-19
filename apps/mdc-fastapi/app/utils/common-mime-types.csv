@@ -72,3 +72,4 @@ Extension,Kind of document,MIME Type
 .3gp,3GPP audio/video container,video/3gpp
 .3g2,3GPP2 audio/video container,video/3gpp2
 .7z,7-zip archive,application/x-7z-compressed
+.mxl,Compressed MusicXML File,application/zip

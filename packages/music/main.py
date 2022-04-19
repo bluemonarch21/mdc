@@ -17,34 +17,16 @@ import chardet
 import numpy as np
 import pandas as pd
 from lxml import etree
+from matplotlib import pyplot as plt
 from music21 import converter, features
-
-from utils import iter as iterutils
 
 
 def batch_process(data_dir: pathlib.Path, *, batch_size: int = 8):
-    df_books_headers = list(pd.read_csv(data_dir / "henle-books-header.csv").columns[:15]) + functools.reduce(
-        lambda a, b: a + b, ([
-            f'author{i + 1}.Name',
-            f'author{i + 1}.Role',
-            f'author{i + 1}.URL',
-        ] for i in range(9)))
-    df_books = pd.read_csv(data_dir / "henle-books.csv", names=df_books_headers, na_values='nil')
-
-    df_mxl_man = pd.read_csv(data_dir / "henle-mxl-manual - henle-mxl-manual.csv")
-    df_mxl_man = df_mxl_man[df_mxl_man['title'].notna()]
+    df_mxl_man = pd.read_csv(data_dir / "henle-mxl-manual-v3.csv")
+    df_mxl_man = df_mxl_man[df_mxl_man['difficulty'].notna()]
     df_mxl_man_no_problem = df_mxl_man['problem'] == 0
     df_mxl_man_problem_fixed = (df_mxl_man['problem'] == 1) & (df_mxl_man['changed'] == 1)
-    df_mxl_man = df_mxl_man[df_mxl_man_no_problem | df_mxl_man_problem_fixed]
-    print(df_mxl_man.shape)
-
-    df_books['title'] = df_books['detail.Title']
-    df_books['hn'] = df_books['book.HN']
-
-    df = df_mxl_man.join(df_books.set_index(['hn', 'title']), on=['hn', 'title'], how='left')
-    del df_books
-    del df_mxl_man
-    # print(df.columns)
+    df = df_mxl_man[df_mxl_man_no_problem | df_mxl_man_problem_fixed]
     print(df.shape)
     # print(df.loc[0])
 
@@ -75,7 +57,7 @@ def batch_process(data_dir: pathlib.Path, *, batch_size: int = 8):
         'p21',  # music21.features.jSymbolic.FifthsPitchHistogramFeature
     ])
 
-    dfi = pd.DataFrame([], columns=['hn', 'title'])
+    dfi = pd.DataFrame([], columns=['hn', 'title', 'difficulty'])
     # new batch
     count = 0
     batch_number = 1
@@ -112,7 +94,7 @@ def batch_process(data_dir: pathlib.Path, *, batch_size: int = 8):
             else:
                 print(e)
                 continue
-        ds.addData(s)
+        ds.addData(s, classValue=row['difficulty'])
         dfi.loc[dfi.shape[0]] = row
         count += 1
         print(f'>>> {count}!')
@@ -145,7 +127,7 @@ def merge_batches(data_dir: pathlib.Path, *, batch_size: int):
     for i in range(math.ceil(dfi.shape[0] / batch_size)):
         batch_number = i + 1
         print(batch_number)
-        df_dsi = pd.read_csv(data_dir / f"henle-music21-{batch_number}x{batch_size}.tab")  # TODO: Check
+        df_dsi = pd.read_csv(data_dir / f"henle-music21-{batch_number}x{batch_size}.tab", skiprows=[1, 2], dialect='excel-tab')
         if df_ds is None:
             df_ds = df_dsi
         else:
@@ -160,3 +142,31 @@ if __name__ == '__main__':
     # data_dir = pathlib.Path("D:\\data\\MDC")
     # batch_process(pathlib.Path("D:\\data\\MDC"), batch_size=8)
     merge_batches(pathlib.Path("D:\\data\\MDC"), batch_size=8)
+
+    # df_books_headers = list(pd.read_csv(data_dir / "henle-books-header.csv").columns[:15]) + functools.reduce(
+    #     lambda a, b: a + b, ([
+    #         f'author{i + 1}.Name',
+    #         f'author{i + 1}.Role',
+    #         f'author{i + 1}.URL',
+    #     ] for i in range(9)))
+    # df_books = pd.read_csv(data_dir / "henle-books.csv", names=df_books_headers, na_values='nil')
+    #
+    # df_mxl_man = pd.read_csv(data_dir / "henle-mxl-manual-v2.csv")
+    # print(df_mxl_man.shape)
+    #
+    # df_books['title'] = df_books['detail.Title']
+    # df_books['hn'] = df_books['book.HN']
+    #
+    # df = df_mxl_man.join(df_books.set_index(['hn', 'title']), on=['hn', 'title'], how='left')
+    # del df_books
+    # del df_mxl_man
+    # print(df.groupby('detail.HenleDifficulty').describe())
+
+    # df_mxl_man = pd.read_csv(data_dir / "henle-mxl-manual-v3.csv")
+    # df_mxl_man = df_mxl_man[df_mxl_man['difficulty'].notna()]
+    # df_mxl_man_no_problem = df_mxl_man['problem'] == 0
+    # df_mxl_man_problem_fixed = (df_mxl_man['problem'] == 1) & (df_mxl_man['changed'] == 1)
+    # df_mxl_man = df_mxl_man[df_mxl_man_no_problem | df_mxl_man_problem_fixed]
+    # print(df_mxl_man['difficulty'].value_counts())
+
+    # df[['hn', 'title', 'detail.HenleDifficulty']].to_csv(data_dir / "henle-mxl-manual-pad.csv")

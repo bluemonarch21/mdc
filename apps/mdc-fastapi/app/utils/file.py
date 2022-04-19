@@ -2,7 +2,7 @@ import os
 import pathlib
 import secrets
 import typing
-from collections.abc import Generator
+from typing import Generator
 
 import pandas as pd
 from fastapi import UploadFile

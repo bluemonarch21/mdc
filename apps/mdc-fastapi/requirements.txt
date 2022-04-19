@@ -1,2 +1,6 @@
 fastapi[all]
 uvicorn
+music21
+pandas
+pycaret
+catboost

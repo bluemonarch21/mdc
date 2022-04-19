@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
-import { Upload, message, Button } from 'antd';
+import { Upload, message, Button, Select } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { UploadProps } from 'antd/lib/upload/interface';
 
-import { FileInfo } from '../api-clients/mdc';
+import { FileInfo, ModelInfo } from '../api-clients/mdc';
 import mdc_robot from '../assets/mdc_robot.png';
 import ResultPage from './ResultPage';
 import LoadingPage from './LoadingPage';
 
 import './HomePage.scss';
-import { predictApi } from '../api-clients';
+import { modelsApi, predictApi } from '../api-clients';
 
 // function getCookie(name: string): string | null {
 //   let cookieValue = null;
@@ -32,6 +32,16 @@ import { predictApi } from '../api-clients';
 const HomePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [level, setLevel] = useState(0);
+  const [model, setModel] = useState('');
+  const [modelOptions, setModelOptions] = useState([] as Array<ModelInfo>);
+
+  useEffect(() => {
+    modelsApi.modelsApiV1ModelsGet().then((res) => {
+      setModelOptions(res.data);
+      setModel(res.data[0].id);
+    });
+  }, []);
+
   const navigate = useNavigate();
   const uploadProps: UploadProps = {
     name: 'file',
@@ -51,7 +61,7 @@ const HomePage: React.FC = () => {
         const uploadResponse: FileInfo = info.file.response;
         message.success(`${info.file.name} file uploaded successfully`);
         predictApi
-          .predictionApiV1PredictGet('catboost512', uploadResponse.id)
+          .predictionApiV1PredictGet(model, uploadResponse.id)
           .then((response) => {
             setLevel(response.data.label);
             setIsLoading(false);
@@ -65,6 +75,8 @@ const HomePage: React.FC = () => {
       }
     },
   };
+  const { Option } = Select;
+
   if (level !== 0) return <ResultPage level={level} />;
   return (
     <div className='homePage'>
@@ -82,6 +94,16 @@ const HomePage: React.FC = () => {
             <p className='homePage__message'>Let’s see what you’ve got!</p>
           </>
         )}
+        <Select
+          // options={modelOptions.map((o) => ({ label: o.description, value: o.id }))}
+          onChange={(value: string) => setModel(value)}
+        >
+          {modelOptions.map((o) => (
+            <Option key={o.id} value={o.id}>
+              {o.description}
+            </Option>
+          ))}
+        </Select>
         <Upload {...uploadProps} className='homePage__upload'>
           {isLoading ? (
             <div />
