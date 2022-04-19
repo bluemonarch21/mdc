@@ -82,18 +82,6 @@ const common = {
   //     appMountId: 'root',
   //   });
   // },
-  createHtmlWebpackPlugin: function (assetName) {
-    return new HtmlWebpackPlugin({
-      templateContent: ({ htmlWebpackPlugin }) => {
-        return JSON.stringify({
-          ...htmlWebpackPlugin.files,
-        });
-      },
-      inject: false,
-      filename: 'main-assets.json', // it will be in outputPath
-      chunks: 'all',
-    });
-  },
 };
 
 module.exports = common;

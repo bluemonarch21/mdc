@@ -67,7 +67,8 @@
   "scripts": {
     "build": "webpack -c webpack.config.prod.js",
     "start": "webpack serve --config webpack.config.dev.js --progress",
-    "test": "jest"
+    "test": "jest",
+    "gen-client": "openapi-generator-cli generate -i http://localhost:8000/api/v1/openapi.json -g typescript-axios -o src/api-clients/mdc --additional-properties=disallowAdditionalPropertiesIfNotPresent=false,supportsES6=true,typescriptThreePlus=true --remove-operation-id-prefix"
   },
   "eslintConfig": {
     "extends": [

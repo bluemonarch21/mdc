@@ -28,7 +28,9 @@ const ResultPage: React.FC<ResultProps> = ({ level }: ResultProps) => {
     <div className='resultPage'>
       <div>
         <p className='resultPage__message'>Your song is</p>
-        <h1 className='resultPage__header'>Level { level } ({ text })</h1>
+        <h1 className='resultPage__header'>
+          Level {level} ({text})
+        </h1>
         <h3 className='resultPage__henle'>on the Henle scale</h3>
         <p className='resultPage__analysis'>according to my analysis.</p>
         <img src={mdc_piano} alt='MDC Piano' className='resultPage__pianoImg' />

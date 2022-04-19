@@ -18,4 +18,4 @@ def read_prediction(
     Retrieve prediction of an uploaded file.
     """
     fileinfo = utils.file.retrieve_by_id(id)
-    return utils.model.predict(model, fileinfo.filepath)
+    return utils.model.predict(model, fileinfo)

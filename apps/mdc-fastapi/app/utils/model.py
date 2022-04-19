@@ -11,6 +11,6 @@ def info() -> List[schemas.ModelInfo]:
     )]
 
 
-def predict(model: str, filepath: pathlib.Path) -> schemas.Prediction:
-    label = 1
-    return schemas.Prediction(model=model, input=filepath, label=label)
+def predict(model: str, fileinfo: schemas.FileInfo) -> schemas.Prediction:
+    label = 4
+    return schemas.Prediction(model=model, input=fileinfo.filename, label=label)

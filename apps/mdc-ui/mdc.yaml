@@ -1,0 +1,227 @@
+openapi: 3.0.2
+info:
+  title: MDC
+  version: 0.1.0
+paths:
+  /api/v1/files/:
+    get:
+      tags:
+        - files
+      summary: Read Uploads
+      description: Retrieve uploaded files.
+      operationId: read_uploads_api_v1_files__get
+      parameters:
+        - required: false
+          schema:
+            title: Skip
+            type: integer
+            default: 0
+          name: skip
+          in: query
+        - required: false
+          schema:
+            title: Limit
+            type: integer
+            default: 100
+          name: limit
+          in: query
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Read Uploads Api V1 Files  Get
+                type: array
+                items:
+                  $ref: '#/components/schemas/FileInfo'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+        - files
+      summary: Create Upload
+      description: Upload a file.
+      operationId: create_upload_api_v1_files__post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_create_upload_api_v1_files__post'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileInfo'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/files/{id}:
+    get:
+      tags:
+        - files
+      summary: Read Upload
+      description: Get an uploaded file by ID.
+      operationId: read_upload_api_v1_files__id__get
+      parameters:
+        - required: true
+          schema:
+            title: Id
+            type: string
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/models/:
+    get:
+      tags:
+        - models
+      summary: Read Models
+      description: Retrieve models information.
+      operationId: read_models_api_v1_models__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Read Models Api V1 Models  Get
+                type: array
+                items:
+                  $ref: '#/components/schemas/ModelInfo'
+  /api/v1/predict/:
+    get:
+      tags:
+        - predict
+      summary: Read Prediction
+      description: Retrieve prediction of an uploaded file.
+      operationId: read_prediction_api_v1_predict__get
+      parameters:
+        - required: true
+          schema:
+            title: Model
+            type: string
+          name: model
+          in: query
+        - required: true
+          schema:
+            title: Id
+            type: string
+          name: id
+          in: query
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prediction'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    Body_create_upload_api_v1_files__post:
+      title: Body_create_upload_api_v1_files__post
+      required:
+        - file
+      type: object
+      properties:
+        file:
+          title: File
+          type: string
+          format: binary
+    FileInfo:
+      title: FileInfo
+      required:
+        - id
+        - filename
+      type: object
+      properties:
+        id:
+          title: Id
+          type: string
+        filename:
+          title: Filename
+          type: string
+    HTTPValidationError:
+      title: HTTPValidationError
+      type: object
+      properties:
+        detail:
+          title: Detail
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+    ModelInfo:
+      title: ModelInfo
+      required:
+        - id
+        - description
+      type: object
+      properties:
+        id:
+          title: Id
+          type: string
+        description:
+          title: Description
+          type: string
+    Prediction:
+      title: Prediction
+      required:
+        - model
+        - input
+        - label
+      type: object
+      properties:
+        model:
+          title: Model
+          type: string
+        input:
+          title: Input
+          type: string
+        label:
+          title: Label
+          type: integer
+    ValidationError:
+      title: ValidationError
+      required:
+        - loc
+        - msg
+        - type
+      type: object
+      properties:
+        loc:
+          title: Location
+          type: array
+          items:
+            type: string
+        msg:
+          title: Message
+          type: string
+        type:
+          title: Error Type
+          type: string
