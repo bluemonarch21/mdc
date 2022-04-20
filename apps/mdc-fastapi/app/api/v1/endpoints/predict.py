@@ -25,6 +25,6 @@ async def read_prediction(
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {fileinfo.filepath.suffix}")
     try:
         prediction = await utils.model.predict(model, fileinfo)
-    except ValueError:
+    except utils.model.BadModelError:
         raise HTTPException(status_code=503, headers={"Retry-After": "2"})
     return prediction

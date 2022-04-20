@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import BaseModel
 
@@ -6,5 +6,5 @@ from pydantic import BaseModel
 class Prediction(BaseModel):
     model: str
     input: str
-    label: int
+    label: Union[int, float]
     score: Optional[float] = None

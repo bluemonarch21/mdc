@@ -1,8 +1,8 @@
 import asyncio
 from typing import List
 
-from pycaret.classification import load_model, predict_model as predict_cls_model
-from pycaret.regression import predict_model as predict_reg_model
+from pycaret.classification import load_model as load_cls_model, predict_model as predict_cls_model
+from pycaret.regression import load_model as load_reg_model, predict_model as predict_reg_model
 from music21 import features, converter
 import pandas as pd
 
@@ -74,18 +74,23 @@ async def get_feature_extractors():
     return feature_extractors
 
 
+class BadModelError(Exception):
+    pass
+
+
 async def get_model(model_name: str):
     if model_name in _models:
         return _models[model_name]
     else:
         try:
-            model = load_model(str(settings.DATA_DIR / "models" / model_name))
+            if "reg" in model_name:
+                model = load_reg_model(str(settings.DATA_DIR / "models" / model_name))
+            else:
+                model = load_cls_model(str(settings.DATA_DIR / "models" / model_name))
             _models[model_name] = model
-        except ValueError:
+        except ValueError as e:
             # sometimes it errors, trying again works somehow
-            raise
-        except Exception as e:
-            raise e
+            raise BadModelError from e
 
 
 async def extract_features(fileinfo: schemas.FileInfo) -> pd.DataFrame:
@@ -103,10 +108,21 @@ async def predict(model_name: str, fileinfo: schemas.FileInfo) -> schemas.Predic
     task2 = asyncio.create_task(get_model(model_name))
     # model = load_model(str(settings.DATA_DIR / "models" / model_name))
     await asyncio.gather(task1, task2)
-    if "reg" in fileinfo.filename:
-        predictions = predict_reg_model(task2.result(), data=task1.result())
-    else:
-        predictions = predict_cls_model(task2.result(), data=task1.result())
+    try:
+        if "reg" in fileinfo.filename:
+            predictions = predict_reg_model(task2.result(), data=task1.result())
+        else:
+            predictions = predict_cls_model(task2.result(), data=task1.result())
+    except ValueError as e:
+        # sometimes it errors, trying again works somehow
+        raise BadModelError from e
+    print(model_name)
+    print(predictions)
     label = predictions.loc[0]['Label']
-    score = predictions.loc[0]['Score']
+    if isinstance(label, str):
+        label = int(label[-1])
+    try:
+        score = predictions.loc[0]['Score']
+    except KeyError:
+        score = None
     return schemas.Prediction(model=model_name, input=fileinfo.filename, label=label, score=score)
