@@ -66,8 +66,23 @@ const HomePage: React.FC = () => {
             setLevel(response.data.label);
             setIsLoading(false);
           })
-          .catch((err) => {
-            console.error(err);
+          .catch((error) => {
+            if (error.response) {
+              // The request was made and the server responded with a status code
+              // that falls out of the range of 2xx
+              if (error.response.status == 503) {
+                predictApi
+                  .predictionApiV1PredictGet(model, uploadResponse.id)
+                  .then((response) => {
+                    setLevel(response.data.label);
+                    setIsLoading(false);
+                  })
+                  .catch((error) => {
+                    console.error(error);
+                  });
+              }
+            }
+            console.error(error);
           });
         // navigate('./result');
       } else if (info.file.status === 'error') {
