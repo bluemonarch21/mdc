@@ -11,7 +11,10 @@ from app.core.config import settings
 
 def info() -> List[schemas.ModelInfo]:
     return [schemas.ModelInfo(id=id, description=description) for id, description in (
-        ('catboost_v1', 'CatBoost + henle-music21-v1 dataset'),
+        ('rf_996_v1', 'Random Forest Classifier'),
+        ('catboost_v1', 'CatBoost Classifier'),
+        ('et_996_v1', 'Extra Trees Classifier'),
+        ('xgb_996_v1', 'Extreme Gradient Boosting'),
     )]
 
 
