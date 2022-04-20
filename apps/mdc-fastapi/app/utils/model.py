@@ -1,7 +1,8 @@
 import asyncio
 from typing import List
 
-from pycaret.regression import load_model, predict_model, setup
+from pycaret.classification import load_model, predict_model as predict_cls_model
+from pycaret.regression import predict_model as predict_reg_model
 from music21 import features, converter
 import pandas as pd
 
@@ -10,12 +11,25 @@ from app.core.config import settings
 
 
 def info() -> List[schemas.ModelInfo]:
-    return [schemas.ModelInfo(id=id, description=description) for id, description in (
-        ('rf_996_v1', 'Random Forest Classifier'),
-        ('catboost_v1', 'CatBoost Classifier'),
-        ('et_996_v1', 'Extra Trees Classifier'),
-        ('xgb_996_v1', 'Extreme Gradient Boosting'),
-    )]
+    out = []
+    for model_path in (settings.DATA_DIR / "models").glob("*.pkl"):
+        parts = []
+        if "rf" in model_path.name:
+            parts.append("Random Forest")
+        elif "et" in model_path.name:
+            parts.append("Extra Trees")
+        elif "xgb" in model_path.name:
+            parts.append("Extreme Gradient Boosting")
+        elif "catboost" in model_path.name:
+            parts.append("CatBoost")
+        if "reg" in model_path.name:
+            parts.append("Regressor")
+        else:
+            parts.append("Classifier")
+        if "v1" in model_path.name:
+            parts.append("v1")
+        out.append(schemas.ModelInfo(id=model_path.stem, description=" ".join(parts)))
+    return out
 
 
 _models = dict()
@@ -89,7 +103,10 @@ async def predict(model_name: str, fileinfo: schemas.FileInfo) -> schemas.Predic
     task2 = asyncio.create_task(get_model(model_name))
     # model = load_model(str(settings.DATA_DIR / "models" / model_name))
     await asyncio.gather(task1, task2)
-    predictions = predict_model(task2.result(), data=task1.result())
+    if "reg" in fileinfo.filename:
+        predictions = predict_reg_model(task2.result(), data=task1.result())
+    else:
+        predictions = predict_cls_model(task2.result(), data=task1.result())
     label = predictions.loc[0]['Label']
     score = predictions.loc[0]['Score']
     return schemas.Prediction(model=model_name, input=fileinfo.filename, label=label, score=score)
