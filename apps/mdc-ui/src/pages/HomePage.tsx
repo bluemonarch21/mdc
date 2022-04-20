@@ -90,7 +90,7 @@ const HomePage: React.FC = () => {
       }
     },
   };
-  const { Option } = Select;
+  // const { Option } = Select;
 
   if (level !== 0) return <ResultPage level={level} />;
   return (
@@ -109,16 +109,15 @@ const HomePage: React.FC = () => {
             <p className='homePage__message'>Let’s see what you’ve got!</p>
           </>
         )}
-        <Select
-          // options={modelOptions.map((o) => ({ label: o.description, value: o.id }))}
-          onChange={(value: string) => setModel(value)}
-        >
-          {modelOptions.map((o) => (
-            <Option key={o.id} value={o.id}>
-              {o.description}
-            </Option>
-          ))}
-        </Select>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <select onChange={(e) => setModel(e.target.value)}>
+            {modelOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.description}
+              </option>
+            ))}
+          </select>
+        </div>
         <Upload {...uploadProps} className='homePage__upload'>
           {isLoading ? (
             <div />
