@@ -31,31 +31,79 @@ def batch_process(data_dir: pathlib.Path, *, batch_size: int = 8):
     # print(df.loc[0])
 
     feature_extractors = features.extractorsById([
-        'r31',  # music21.features.jSymbolic.InitialTimeSignatureFeature
-        'r32',  # music21.features.jSymbolic.CompoundOrSimpleMeterFeature
-        'r33',  # music21.features.jSymbolic.TripleMeterFeature
-        'r34',  # music21.features.jSymbolic.QuintupleMeterFeature
-        'r35',  # music21.features.jSymbolic.ChangesOfMeterFeature
-        'p1',   # music21.features.jSymbolic.MostCommonPitchPrevalenceFeature
-        'p2',   # music21.features.jSymbolic.MostCommonPitchClassPrevalenceFeature
-        'p3',   # music21.features.jSymbolic.RelativeStrengthOfTopPitchesFeature
-        'p4',   # music21.features.jSymbolic.RelativeStrengthOfTopPitchClassesFeature
-        'p5',   # music21.features.jSymbolic.IntervalBetweenStrongestPitchesFeature`
-        'p6',   # music21.features.jSymbolic.IntervalBetweenStrongestPitchClassesFeature
-        'p7',   # music21.features.jSymbolic.NumberOfCommonPitchesFeature
-        'p8',   # music21.features.jSymbolic.PitchVarietyFeature
-        'p9',   # music21.features.jSymbolic.PitchClassVarietyFeature
-        'p10',  # music21.features.jSymbolic.RangeFeature
-        'p11',  # music21.features.jSymbolic.MostCommonPitchFeature
-        'p12',  # music21.features.jSymbolic.PrimaryRegisterFeature
-        'p13',  # music21.features.jSymbolic.ImportanceOfBassRegisterFeature
-        'p14',  # music21.features.jSymbolic.ImportanceOfMiddleRegisterFeature
-        'p15',  # music21.features.jSymbolic.ImportanceOfHighRegisterFeature
-        'p16',  # music21.features.jSymbolic.MostCommonPitchClassFeature
-        'p19',  # music21.features.jSymbolic.BasicPitchHistogramFeature
-        'p20',  # music21.features.jSymbolic.PitchClassDistributionFeature
-        'p21',  # music21.features.jSymbolic.FifthsPitchHistogramFeature
+        'm1',    # MelodicIntervalHistogramFeature
+        'm2',    # AverageMelodicIntervalFeature
+        'm3',    # MostCommonMelodicIntervalFeature
+        'm4',    # DistanceBetweenMostCommonMelodicIntervalsFeature
+        'm5',    # MostCommonMelodicIntervalPrevalenceFeature
+        'm6',    # RelativeStrengthOfMostCommonIntervalsFeature
+        'm7',    # NumberOfCommonMelodicIntervalsFeature
+        'm8',    # AmountOfArpeggiationFeature
+        'm9',    # RepeatedNotesFeature
+        'm10',   # ChromaticMotionFeature
+        'm11',   # StepwiseMotionFeature
+        'm12',   # MelodicThirdsFeature
+        'm13',   # MelodicFifthsFeature
+        'm14',   # MelodicTritonesFeature
+        'm15',   # MelodicOctavesFeature
+        'm17',   # DirectionOfMotionFeature
+        'm18',   # DurationOfMelodicArcsFeature
+        'm19',   # SizeOfMelodicArcsFeature
+        'r15',   # NoteDensityFeature
+        'r17',   # AverageNoteDurationFeature
+        'r18',   # VariabilityOfNoteDurationFeature
+        'r19',   # MaximumNoteDurationFeature
+        'r20',   # MinimumNoteDurationFeature
+        'r21',   # StaccatoIncidenceFeature
+        'r22',   # AverageTimeBetweenAttacksFeature
+        'r23',   # VariabilityOfTimeBetweenAttacksFeature
+        'r24',   # AverageTimeBetweenAttacksForEachVoiceFeature
+        'r25',   # AverageVariabilityOfTimeBetweenAttacksForEachVoiceFeature
+        'r30',   # InitialTempoFeature
+        'r31',   # InitialTimeSignatureFeature
+        'r32',   # CompoundOrSimpleMeterFeature
+        'r35',   # ChangesOfMeterFeature
+        'r36',   # DurationFeature
+        'p1',    # MostCommonPitchPrevalenceFeature
+        'p2',    # MostCommonPitchClassPrevalenceFeature
+        'p3',    # RelativeStrengthOfTopPitchesFeature
+        'p4',    # RelativeStrengthOfTopPitchClassesFeature
+        'p5',    # IntervalBetweenStrongestPitchesFeature
+        'p6',    # IntervalBetweenStrongestPitchClassesFeature
+        'p7',    # NumberOfCommonPitchesFeature
+        'p8',    # PitchVarietyFeature
+        'p9',    # PitchClassVarietyFeature
+        'p10',   # RangeFeature
+        'p11',   # MostCommonPitchFeature
+        'p12',   # PrimaryRegisterFeature
+        'p13',   # ImportanceOfBassRegisterFeature
+        'p14',   # ImportanceOfMiddleRegisterFeature
+        'p15',   # ImportanceOfHighRegisterFeature
+        'p16',   # MostCommonPitchClassFeature
+        'p19',   # BasicPitchHistogramFeature
+        'p20',   # PitchClassDistributionFeature
+        'p21',   # FifthsPitchHistogramFeature
+        'k1',    # TonalCertainty
+        'ql1',   # UniqueNoteQuarterLengths
+        'ql2',   # MostCommonNoteQuarterLength
+        'ql3',   # MostCommonNoteQuarterLengthPrevalence
+        'ql4',   # RangeOfNoteQuarterLengths
+        'cs1',   # UniquePitchClassSetSimultaneities
+        'cs2',   # UniqueSetClassSimultaneities
+        'cs3',   # MostCommonPitchClassSetSimultaneityPrevalence
+        'cs4',   # MostCommonSetClassSimultaneityPrevalence
+        'cs5',   # MajorTriadSimultaneityPrevalence
+        'cs6',   # MinorTriadSimultaneityPrevalence
+        'cs7',   # DominantSeventhSimultaneityPrevalence
+        'cs8',   # DiminishedTriadSimultaneityPrevalence
+        'cs9',   # TriadSimultaneityPrevalence
+        'cs10',  # DiminishedSeventhSimultaneityPrevalence
+        'cs11',  # IncorrectlySpelledTriadPrevalence
+        'cs12',  # ChordBassMotionFeature
+        'mc1',   # LandiniCadence
     ])
+
+    feature_extractors += [features.extractorsById('p22', library=['native'])]
 
     dfi = pd.DataFrame([], columns=['hn', 'title', 'difficulty'])
     # new batch
